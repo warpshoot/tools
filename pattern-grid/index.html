@@ -286,39 +286,11 @@
 
         // Draw arc
         function drawArc(x, y, size, corner, color, inverted) {
-            if (!inverted) {
-                ctx.fillStyle = color;
-                ctx.beginPath();
-                switch (corner) {
-                    case 'tl':
-                        ctx.arc(x, y, size, 0, Math.PI / 2);
-                        ctx.lineTo(x, y);
-                        break;
-                    case 'tr':
-                        ctx.arc(x + size, y, size, Math.PI / 2, Math.PI);
-                        ctx.lineTo(x + size, y);
-                        break;
-                    case 'bl':
-                        ctx.arc(x, y + size, size, -Math.PI / 2, 0);
-                        ctx.lineTo(x, y + size);
-                        break;
-                    case 'br':
-                        ctx.arc(x + size, y + size, size, Math.PI, Math.PI * 1.5);
-                        ctx.lineTo(x + size, y + size);
-                        break;
-                }
-                ctx.closePath();
-                ctx.fill();
-            } else {
-                // Draw inverted arc: fill square, then cut out the arc
-                ctx.fillStyle = color;
-                ctx.fillRect(x, y, size, size);
+            ctx.fillStyle = color;
+            ctx.beginPath();
 
-                // Cut out the arc portion
-                ctx.save();
-                ctx.globalCompositeOperation = 'destination-out';
-                ctx.fillStyle = 'rgba(0,0,0,1)';
-                ctx.beginPath();
+            if (!inverted) {
+                // Normal arc: just the quarter circle
                 switch (corner) {
                     case 'tl':
                         ctx.arc(x, y, size, 0, Math.PI / 2);
@@ -337,10 +309,38 @@
                         ctx.lineTo(x + size, y + size);
                         break;
                 }
-                ctx.closePath();
-                ctx.fill();
-                ctx.restore();
+            } else {
+                // Inverted arc: draw the 3 corners + arc as a single path
+                switch (corner) {
+                    case 'tl':
+                        ctx.moveTo(x + size, y);
+                        ctx.lineTo(x + size, y + size);
+                        ctx.lineTo(x, y + size);
+                        ctx.arc(x, y, size, Math.PI / 2, 0, true);
+                        break;
+                    case 'tr':
+                        ctx.moveTo(x + size, y + size);
+                        ctx.lineTo(x, y + size);
+                        ctx.lineTo(x, y);
+                        ctx.arc(x + size, y, size, Math.PI, Math.PI / 2, true);
+                        break;
+                    case 'bl':
+                        ctx.moveTo(x + size, y + size);
+                        ctx.lineTo(x + size, y);
+                        ctx.lineTo(x, y);
+                        ctx.arc(x, y + size, size, -Math.PI / 2, -Math.PI, true);
+                        break;
+                    case 'br':
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x, y + size);
+                        ctx.lineTo(x + size, y + size);
+                        ctx.arc(x + size, y + size, size, -Math.PI, -Math.PI / 2, true);
+                        break;
+                }
             }
+
+            ctx.closePath();
+            ctx.fill();
         }
 
         // Render grid
