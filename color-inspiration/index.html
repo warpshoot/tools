@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Inspiration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #000;
+            color: #fff;
+            touch-action: manipulation;
+        }
+
+        .container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .colors {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .color-strip {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .color-strip:active {
+            opacity: 0.8;
+        }
+
+        .color-code {
+            font-size: 24px;
+            font-weight: 500;
+            letter-spacing: 2px;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            user-select: none;
+        }
+
+        .controls {
+            background: #000;
+            padding: 16px;
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        button {
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 12px;
+            font-size: 20px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: opacity 0.2s;
+            min-width: 44px;
+        }
+
+        button:active {
+            opacity: 0.7;
+        }
+
+        button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        select {
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 4px;
+            min-width: 120px;
+        }
+
+        .feedback {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            color: #000;
+            padding: 16px 32px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .feedback.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="colors" id="colors"></div>
+        <div class="controls">
+            <button id="undoBtn" disabled>⬅️</button>
+            <select id="harmonySelect">
+                <option value="random">Random</option>
+                <option value="complementary">Complementary</option>
+                <option value="analogous">Analogous</option>
+                <option value="triadic">Triadic</option>
+                <option value="split">Split-Comp</option>
+            </select>
+            <button id="modeToggle">2</button>
+            <button id="regenerateBtn">🎲</button>
+        </div>
+    </div>
+    <div class="feedback" id="feedback">Copied!</div>
+
+    <script>
+        let colorMode = 2; // 2 or 3
+        let colors = [];
+        let harmonyMode = 'random'; // random, complementary, analogous, triadic
+        let previousState = null; // { colors, harmonyMode, colorMode }
+
+        function randomColor() {
+            const hue = Math.floor(Math.random() * 360);
+            const sat = 40 + Math.floor(Math.random() * 60);
+            const light = 35 + Math.floor(Math.random() * 50);
+            return hslToHex(hue, sat, light);
+        }
+
+        function generateHarmonyColors(mode, count) {
+            const baseHue = Math.floor(Math.random() * 360);
+            const baseSat = 40 + Math.floor(Math.random() * 60);
+            const baseLight = 35 + Math.floor(Math.random() * 50);
+
+            const result = [];
+
+            if (mode === 'random') {
+                for (let i = 0; i < count; i++) {
+                    result.push(randomColor());
+                }
+            } else if (mode === 'complementary') {
+                // 補色:180度反対
+                result.push(hslToHex(baseHue, baseSat, baseLight));
+                result.push(hslToHex((baseHue + 180) % 360, baseSat, baseLight));
+                if (count === 3) {
+                    result.push(hslToHex((baseHue + 90) % 360, baseSat, baseLight));
+                }
+            } else if (mode === 'analogous') {
+                // 類似色:30度ずつ隣接
+                result.push(hslToHex(baseHue, baseSat, baseLight));
+                result.push(hslToHex((baseHue + 30) % 360, baseSat, baseLight));
+                if (count === 3) {
+                    result.push(hslToHex((baseHue + 60) % 360, baseSat, baseLight));
+                }
+            } else if (mode === 'triadic') {
+                // トライアド:120度ずつ
+                result.push(hslToHex(baseHue, baseSat, baseLight));
+                result.push(hslToHex((baseHue + 120) % 360, baseSat, baseLight));
+                if (count === 3) {
+                    result.push(hslToHex((baseHue + 240) % 360, baseSat, baseLight));
+                } else {
+                    result.push(hslToHex((baseHue + 180) % 360, baseSat, baseLight));
+                }
+            } else if (mode === 'split') {
+                // スプリットコンプリメンタリー
+                result.push(hslToHex(baseHue, baseSat, baseLight));
+                result.push(hslToHex((baseHue + 150) % 360, baseSat, baseLight));
+                if (count === 3) {
+                    result.push(hslToHex((baseHue + 210) % 360, baseSat, baseLight));
+                }
+            }
+
+            return result;
+        }
+
+        function hslToHex(h, s, l) {
+            s /= 100;
+            l /= 100;
+            const c = (1 - Math.abs(2 * l - 1)) * s;
+            const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+            const m = l - c / 2;
+            let r = 0, g = 0, b = 0;
+
+            if (0 <= h && h < 60) {
+                r = c; g = x; b = 0;
+            } else if (60 <= h && h < 120) {
+                r = x; g = c; b = 0;
+            } else if (120 <= h && h < 180) {
+                r = 0; g = c; b = x;
+            } else if (180 <= h && h < 240) {
+                r = 0; g = x; b = c;
+            } else if (240 <= h && h < 300) {
+                r = x; g = 0; b = c;
+            } else if (300 <= h && h < 360) {
+                r = c; g = 0; b = x;
+            }
+
+            const toHex = (v) => {
+                const hex = Math.round((v + m) * 255).toString(16);
+                return hex.length === 1 ? '0' + hex : hex;
+            };
+
+            return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+        }
+
+        function getContrastColor(hexColor) {
+            const r = parseInt(hexColor.substr(1, 2), 16);
+            const g = parseInt(hexColor.substr(3, 2), 16);
+            const b = parseInt(hexColor.substr(5, 2), 16);
+            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+            return brightness > 128 ? '#000' : '#fff';
+        }
+
+        function saveState() {
+            if (colors.length > 0) {
+                previousState = {
+                    colors: [...colors],
+                    harmonyMode: harmonyMode,
+                    colorMode: colorMode
+                };
+            }
+        }
+
+        function initColors() {
+            saveState();
+            colors = generateHarmonyColors(harmonyMode, colorMode);
+            render();
+            updateUndoButton();
+        }
+
+        function regenerateColor(index) {
+            saveState();
+            colors[index] = randomColor();
+            render();
+            updateUndoButton();
+        }
+
+        function undo() {
+            if (previousState) {
+                colors = [...previousState.colors];
+                harmonyMode = previousState.harmonyMode;
+                colorMode = previousState.colorMode;
+
+                // UI更新
+                document.getElementById('harmonySelect').value = harmonyMode;
+                document.getElementById('modeToggle').textContent = colorMode;
+
+                previousState = null;
+                render();
+                updateUndoButton();
+            }
+        }
+
+        function updateUndoButton() {
+            const btn = document.getElementById('undoBtn');
+            if (btn) {
+                btn.disabled = !previousState;
+            }
+        }
+
+        function copyToClipboard(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showFeedback();
+                });
+            } else {
+                // フォールバック
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    showFeedback();
+                } catch (err) {
+                    console.error('コピー失敗', err);
+                }
+                document.body.removeChild(textarea);
+            }
+        }
+
+        function showFeedback() {
+            const feedback = document.getElementById('feedback');
+            feedback.classList.add('show');
+            setTimeout(() => {
+                feedback.classList.remove('show');
+            }, 1000);
+        }
+
+        function render() {
+            const container = document.getElementById('colors');
+            container.innerHTML = '';
+
+            colors.forEach((color, index) => {
+                const strip = document.createElement('div');
+                strip.className = 'color-strip';
+                strip.style.backgroundColor = color;
+
+                const code = document.createElement('div');
+                code.className = 'color-code';
+                code.textContent = color.toUpperCase();
+                code.style.color = getContrastColor(color);
+
+                strip.appendChild(code);
+
+                // タップで個別再生成
+                strip.addEventListener('click', (e) => {
+                    if (e.target === code) {
+                        // カラーコードをタップしたらコピー
+                        copyToClipboard(color);
+                    } else {
+                        // 色部分をタップしたら再生成
+                        regenerateColor(index);
+                    }
+                });
+
+                container.appendChild(strip);
+            });
+        }
+
+        // ハーモニーモード選択
+        document.getElementById('harmonySelect').addEventListener('change', (e) => {
+            harmonyMode = e.target.value;
+        });
+
+        // モード切り替え
+        document.getElementById('modeToggle').addEventListener('click', () => {
+            colorMode = colorMode === 2 ? 3 : 2;
+            document.getElementById('modeToggle').textContent = colorMode;
+            initColors();
+        });
+
+        // 再生成
+        document.getElementById('regenerateBtn').addEventListener('click', () => {
+            initColors();
+        });
+
+        // アンドゥ
+        document.getElementById('undoBtn').addEventListener('click', () => {
+            undo();
+        });
+
+        // 初期化
+        initColors();
+    </script>
+</body>
+
+</html>
