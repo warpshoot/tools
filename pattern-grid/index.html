@@ -85,15 +85,17 @@
         .canvas-container {
             flex: 1;
             display: flex;
-            align-items: center;
-            justify-content: center;
+            align-items: flex-start;
+            justify-content: flex-start;
             padding: 20px;
             overflow: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         canvas {
             border: 2px solid #3a3a3a;
             cursor: crosshair;
+            margin: auto;
         }
 
         .size-display {
