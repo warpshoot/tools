@@ -186,9 +186,9 @@
       const offsetX = (normalizedX - 0.5) * 2;  // -1 to 1
       const offsetY = (normalizedY - 0.5) * 2;  // -1 to 1
 
-      // 3D回転角度を計算（左から見たら左側面が見える）
-      const rotateY = offsetX * ROTATION_STRENGTH;
-      const rotateX = -offsetY * ROTATION_STRENGTH;
+      // 3D回転角度を計算（顔が左に動いたら立方体の右側面が見える）
+      const rotateY = -offsetX * ROTATION_STRENGTH;  // 符号を反転
+      const rotateX = offsetY * ROTATION_STRENGTH;   // 符号を反転
 
       // 3D変換を適用
       layer.style.transform = `translate(-50%, -50%) rotateY(${rotateY}deg) rotateX(${rotateX}deg)`;
