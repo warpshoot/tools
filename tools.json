@@ -20,6 +20,13 @@
       "title": "Pattern Grid",
       "description": "Create geometric patterns with triangles and arcs",
       "device": "both"
+    },
+    {
+      "path": "./dual-battle/",
+      "icon": "⚔️",
+      "title": "Dual Battle",
+      "description": "2-player tap battle game on one screen",
+      "device": "mobile"
     }
   ]
 }

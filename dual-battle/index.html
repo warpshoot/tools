@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Dual Battle</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            touch-action: none;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(180deg, #1a0033 0%, #000 50%, #330033 100%);
+            touch-action: none;
+        }
+
+        .hud {
+            position: absolute;
+            width: 100%;
+            pointer-events: none;
+        }
+
+        .hud-top {
+            top: 20px;
+            transform: rotate(180deg);
+        }
+
+        .hud-bottom {
+            bottom: 20px;
+        }
+
+        .hp-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .hp-container {
+            width: 200px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .hp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff0066, #ff6600);
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+
+        .hp-fill.low {
+            background: linear-gradient(90deg, #ff0000, #ff3300);
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            padding: 40px;
+            border-radius: 16px;
+            text-align: center;
+            display: none;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .game-over.show {
+            display: block;
+        }
+
+        .game-over h2 {
+            font-size: 36px;
+            margin-bottom: 16px;
+            background: linear-gradient(90deg, #ff0066, #ff6600);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .game-over p {
+            font-size: 20px;
+            margin-bottom: 24px;
+            opacity: 0.8;
+        }
+
+        .restart-btn {
+            background: linear-gradient(90deg, #ff0066, #ff6600);
+            color: #fff;
+            border: none;
+            padding: 16px 32px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+
+        .restart-btn:active {
+            opacity: 0.8;
+        }
+
+        .instructions {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+            opacity: 0;
+            animation: fadeOut 3s forwards;
+        }
+
+        @keyframes fadeOut {
+            0%, 50% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+            }
+        }
+
+        .instructions h3 {
+            font-size: 24px;
+            margin-bottom: 12px;
+        }
+
+        .instructions p {
+            font-size: 16px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="hud hud-top">
+        <div class="hp-bar">
+            <span>P2</span>
+            <div class="hp-container">
+                <div class="hp-fill" id="hp2" style="width: 100%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="hud hud-bottom">
+        <div class="hp-bar">
+            <span>P1</span>
+            <div class="hp-container">
+                <div class="hp-fill" id="hp1" style="width: 100%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="instructions">
+        <h3>タップして攻撃！</h3>
+        <p>相手のHPを0にしたら勝利</p>
+    </div>
+
+    <div class="game-over" id="gameOver">
+        <h2 id="winnerText">Player 1 WIN!</h2>
+        <p>おめでとうございます！</p>
+        <button class="restart-btn" onclick="restartGame()">もう一度</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // キャンバスサイズ設定
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // ゲーム状態
+        let gameState = {
+            running: true,
+            player1: { hp: 100, bullets: [] },
+            player2: { hp: 100, bullets: [] }
+        };
+
+        // 弾のクラス
+        class Bullet {
+            constructor(x, y, targetX, targetY, player) {
+                this.x = x;
+                this.y = y;
+                this.player = player;
+                this.radius = 8;
+                this.speed = 8;
+
+                // 方向計算
+                const dx = targetX - x;
+                const dy = targetY - y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                this.vx = (dx / distance) * this.speed;
+                this.vy = (dy / distance) * this.speed;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+
+                // グラデーション
+                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+                if (this.player === 1) {
+                    gradient.addColorStop(0, '#ff6600');
+                    gradient.addColorStop(1, '#ff0066');
+                } else {
+                    gradient.addColorStop(0, '#00ffff');
+                    gradient.addColorStop(1, '#0066ff');
+                }
+                ctx.fillStyle = gradient;
+                ctx.fill();
+
+                // グロー効果
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = this.player === 1 ? '#ff0066' : '#00ffff';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+
+            isOffScreen() {
+                return this.x < -50 || this.x > canvas.width + 50 ||
+                       this.y < -50 || this.y > canvas.height + 50;
+            }
+
+            collidesWith(x, y, radius) {
+                const dx = this.x - x;
+                const dy = this.y - y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < this.radius + radius;
+            }
+        }
+
+        // プレイヤー描画
+        function drawPlayers() {
+            // Player 1 (下)
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height - 50);
+            ctx.beginPath();
+            ctx.moveTo(0, -20);
+            ctx.lineTo(-15, 20);
+            ctx.lineTo(15, 20);
+            ctx.closePath();
+            const gradient1 = ctx.createLinearGradient(0, -20, 0, 20);
+            gradient1.addColorStop(0, '#ff6600');
+            gradient1.addColorStop(1, '#ff0066');
+            ctx.fillStyle = gradient1;
+            ctx.fill();
+            ctx.restore();
+
+            // Player 2 (上・逆さま)
+            ctx.save();
+            ctx.translate(canvas.width / 2, 50);
+            ctx.rotate(Math.PI);
+            ctx.beginPath();
+            ctx.moveTo(0, -20);
+            ctx.lineTo(-15, 20);
+            ctx.lineTo(15, 20);
+            ctx.closePath();
+            const gradient2 = ctx.createLinearGradient(0, -20, 0, 20);
+            gradient2.addColorStop(0, '#00ffff');
+            gradient2.addColorStop(1, '#0066ff');
+            ctx.fillStyle = gradient2;
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // 中央線描画
+        function drawCenterLine() {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // 弾の更新と描画
+        function updateBullets() {
+            // Player 1の弾
+            gameState.player1.bullets = gameState.player1.bullets.filter(bullet => {
+                bullet.update();
+                bullet.draw();
+
+                // 画面外チェック
+                if (bullet.isOffScreen()) return false;
+
+                // Player 2との衝突チェック
+                if (bullet.y < canvas.height / 2 &&
+                    bullet.collidesWith(canvas.width / 2, 50, 20)) {
+                    gameState.player2.hp = Math.max(0, gameState.player2.hp - 10);
+                    updateHP();
+                    createExplosion(bullet.x, bullet.y, 1);
+                    return false;
+                }
+
+                return true;
+            });
+
+            // Player 2の弾
+            gameState.player2.bullets = gameState.player2.bullets.filter(bullet => {
+                bullet.update();
+                bullet.draw();
+
+                // 画面外チェック
+                if (bullet.isOffScreen()) return false;
+
+                // Player 1との衝突チェック
+                if (bullet.y > canvas.height / 2 &&
+                    bullet.collidesWith(canvas.width / 2, canvas.height - 50, 20)) {
+                    gameState.player1.hp = Math.max(0, gameState.player1.hp - 10);
+                    updateHP();
+                    createExplosion(bullet.x, bullet.y, 2);
+                    return false;
+                }
+
+                return true;
+            });
+        }
+
+        // 爆発エフェクト
+        const particles = [];
+        function createExplosion(x, y, player) {
+            for (let i = 0; i < 20; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    life: 1,
+                    player
+                });
+            }
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.02;
+
+                if (p.life > 0) {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = p.player === 1 ?
+                        `rgba(255, 102, 0, ${p.life})` :
+                        `rgba(0, 255, 255, ${p.life})`;
+                    ctx.fill();
+                } else {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        // HP更新
+        function updateHP() {
+            const hp1 = document.getElementById('hp1');
+            const hp2 = document.getElementById('hp2');
+
+            hp1.style.width = gameState.player1.hp + '%';
+            hp2.style.width = gameState.player2.hp + '%';
+
+            if (gameState.player1.hp < 30) hp1.classList.add('low');
+            if (gameState.player2.hp < 30) hp2.classList.add('low');
+
+            // ゲームオーバーチェック
+            if (gameState.player1.hp === 0 || gameState.player2.hp === 0) {
+                endGame();
+            }
+        }
+
+        // ゲーム終了
+        function endGame() {
+            gameState.running = false;
+            const gameOver = document.getElementById('gameOver');
+            const winnerText = document.getElementById('winnerText');
+
+            if (gameState.player1.hp === 0) {
+                winnerText.textContent = 'Player 2 WIN! 🎉';
+            } else {
+                winnerText.textContent = 'Player 1 WIN! 🎉';
+            }
+
+            gameOver.classList.add('show');
+        }
+
+        // ゲーム再スタート
+        function restartGame() {
+            gameState = {
+                running: true,
+                player1: { hp: 100, bullets: [] },
+                player2: { hp: 100, bullets: [] }
+            };
+            particles.length = 0;
+
+            document.getElementById('hp1').style.width = '100%';
+            document.getElementById('hp2').style.width = '100%';
+            document.getElementById('hp1').classList.remove('low');
+            document.getElementById('hp2').classList.remove('low');
+            document.getElementById('gameOver').classList.remove('show');
+        }
+
+        // タッチ/クリックイベント
+        function handleInput(e) {
+            if (!gameState.running) return;
+
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touches = e.touches || [e];
+
+            for (let touch of touches) {
+                const x = touch.clientX - rect.left;
+                const y = touch.clientY - rect.top;
+
+                // Player 1のエリア（下半分）
+                if (y > canvas.height / 2) {
+                    const bullet = new Bullet(
+                        canvas.width / 2,
+                        canvas.height - 50,
+                        x, y, 1
+                    );
+                    gameState.player1.bullets.push(bullet);
+                }
+                // Player 2のエリア（上半分）
+                else {
+                    const bullet = new Bullet(
+                        canvas.width / 2,
+                        50,
+                        x, y, 2
+                    );
+                    gameState.player2.bullets.push(bullet);
+                }
+            }
+        }
+
+        canvas.addEventListener('touchstart', handleInput);
+        canvas.addEventListener('mousedown', handleInput);
+
+        // ゲームループ
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (gameState.running) {
+                drawCenterLine();
+                drawPlayers();
+                updateBullets();
+                updateParticles();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+    </script>
+</body>
+
+</html>
