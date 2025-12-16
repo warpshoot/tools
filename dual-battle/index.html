@@ -171,6 +171,43 @@
             box-shadow: 0 0 30px currentColor;
         }
 
+        .ready-player .ready-text {
+            display: none;
+            font-size: 36px;
+            font-weight: bold;
+            margin-top: 20px;
+            text-shadow: 0 0 20px currentColor;
+        }
+
+        .ready-player.ready .go-btn {
+            display: none;
+        }
+
+        .ready-player.ready .ready-text {
+            display: block;
+        }
+
+        .go-btn {
+            margin-top: 20px;
+            padding: 16px 40px;
+            font-size: 32px;
+            font-weight: bold;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
+            border: 3px solid currentColor;
+            border-radius: 12px;
+            color: inherit;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: all 0.2s ease;
+            text-shadow: 0 0 10px currentColor;
+            box-shadow: 0 0 20px currentColor;
+        }
+
+        .go-btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 30px currentColor;
+        }
+
         @keyframes readyPulse {
             0%, 100% {
                 transform: scale(1);
@@ -291,8 +328,16 @@
     <div class="ready-screen" id="readyScreen">
         <div class="ready-message">READY?</div>
         <div class="ready-players">
-            <div class="ready-player p1" id="readyP1">Player 1<br>TAP!</div>
-            <div class="ready-player p2" id="readyP2">Player 2<br>TAP!</div>
+            <div class="ready-player p1" id="readyP1">
+                <div class="player-label">Player 1</div>
+                <button class="go-btn" onclick="handleReadyTap(1)">GO!</button>
+                <div class="ready-text">READY!</div>
+            </div>
+            <div class="ready-player p2" id="readyP2">
+                <div class="player-label">Player 2</div>
+                <button class="go-btn" onclick="handleReadyTap(2)">GO!</button>
+                <div class="ready-text">READY!</div>
+            </div>
         </div>
     </div>
 
@@ -1007,18 +1052,12 @@
         canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
             requestFullscreenOnce();
+
+            // 準備フェーズ中はcanvasのタッチを無視
+            if (gameState.readyPhase) return;
+
             for (let touch of e.changedTouches) {
                 const pos = getTouchPos(touch);
-
-                // 準備フェーズ中のタップ処理
-                if (gameState.readyPhase) {
-                    if (pos.y > canvas.height / 2) {
-                        handleReadyTap(1);
-                    } else {
-                        handleReadyTap(2);
-                    }
-                    continue;
-                }
 
                 // Player 1のエリア（下半分）
                 if (pos.y > canvas.height / 2) {
@@ -1085,19 +1124,13 @@
 
         canvas.addEventListener('mousedown', (e) => {
             requestFullscreenOnce();
+
+            // 準備フェーズ中はcanvasのクリックを無視
+            if (gameState.readyPhase) return;
+
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
-
-            // 準備フェーズ中のクリック処理
-            if (gameState.readyPhase) {
-                if (y > canvas.height / 2) {
-                    handleReadyTap(1);
-                } else {
-                    handleReadyTap(2);
-                }
-                return;
-            }
 
             if (y > canvas.height / 2) {
                 if (Math.hypot(x - paddle1.x, y - paddle1.y) < paddle1.radius * 2) {
