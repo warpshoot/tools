@@ -180,10 +180,15 @@
         let transparentBg = false;
         let grid = [];
 
-        // Initialize grid - each cell is an array of shapes
+        // Initialize grid
         function initGrid() {
             grid = Array(gridSize).fill(null).map(() =>
-                Array(gridSize).fill(null).map(() => [])
+                Array(gridSize).fill(null).map(() => ({
+                    type: null,
+                    corner: null,
+                    color: null,
+                    inverted: false
+                }))
             );
         }
 
@@ -378,21 +383,20 @@
             // Draw cells
             for (let row = 0; row < gridSize; row++) {
                 for (let col = 0; col < gridSize; col++) {
-                    const shapes = grid[row][col];
-                    const x = col * cellSize;
-                    const y = row * cellSize;
+                    const cell = grid[row][col];
+                    if (cell.type && cell.color) {
+                        const x = col * cellSize;
+                        const y = row * cellSize;
 
-                    // Draw all shapes in this cell
-                    shapes.forEach(shape => {
-                        if (shape.type === 'triangle') {
-                            drawTriangle(x, y, cellSize, shape.corner, shape.color, shape.inverted);
-                        } else if (shape.type === 'arc') {
-                            drawArc(x, y, cellSize, shape.corner, shape.color, shape.inverted);
-                        } else if (shape.type === 'rect') {
-                            ctx.fillStyle = shape.color;
+                        if (cell.type === 'triangle') {
+                            drawTriangle(x, y, cellSize, cell.corner, cell.color, cell.inverted);
+                        } else if (cell.type === 'arc') {
+                            drawArc(x, y, cellSize, cell.corner, cell.color, cell.inverted);
+                        } else if (cell.type === 'rect') {
+                            ctx.fillStyle = cell.color;
                             ctx.fillRect(x, y, cellSize, cellSize);
                         }
-                    });
+                    }
                 }
             }
         }
@@ -410,58 +414,37 @@
             const row = Math.floor(canvasY / cellSize);
 
             if (col >= 0 && col < gridSize && row >= 0 && row < gridSize) {
-                const shapes = grid[row][col];
+                const cell = grid[row][col];
 
                 if (mode === 'rect') {
-                    // Check if rect already exists
-                    const rectIndex = shapes.findIndex(s => s.type === 'rect');
-                    if (rectIndex !== -1) {
-                        // Remove rect
-                        shapes.splice(rectIndex, 1);
+                    if (cell.type === 'rect') {
+                        cell.type = null;
+                        cell.color = null;
                     } else {
-                        // Add rect
-                        shapes.push({
-                            type: 'rect',
-                            corner: null,
-                            color: currentColor,
-                            inverted: false
-                        });
+                        cell.type = 'rect';
+                        cell.corner = null;
+                        cell.color = currentColor;
+                        cell.inverted = false;
                     }
                 } else {
                     const relX = (canvasX % cellSize) / cellSize;
                     const relY = (canvasY % cellSize) / cellSize;
                     const corner = getCornerByDistance(relX, relY);
 
-                    // Find any existing shape at this corner (regardless of type)
-                    const existingShapeIndex = shapes.findIndex(s => s.corner === corner);
-
-                    if (existingShapeIndex !== -1) {
-                        const existingShape = shapes[existingShapeIndex];
-
-                        if (existingShape.type === mode) {
-                            // Same type and corner - toggle inverted or remove
-                            if (!existingShape.inverted) {
-                                existingShape.inverted = true;
-                            } else {
-                                shapes.splice(existingShapeIndex, 1);
-                            }
+                    if (cell.type === mode && cell.corner === corner) {
+                        if (!cell.inverted) {
+                            cell.inverted = true;
                         } else {
-                            // Different type - replace with new shape
-                            shapes[existingShapeIndex] = {
-                                type: mode,
-                                corner: corner,
-                                color: currentColor,
-                                inverted: false
-                            };
+                            cell.type = null;
+                            cell.corner = null;
+                            cell.color = null;
+                            cell.inverted = false;
                         }
                     } else {
-                        // No shape at this corner - add new shape
-                        shapes.push({
-                            type: mode,
-                            corner: corner,
-                            color: currentColor,
-                            inverted: false
-                        });
+                        cell.type = mode;
+                        cell.corner = corner;
+                        cell.color = currentColor;
+                        cell.inverted = false;
                     }
                 }
 
