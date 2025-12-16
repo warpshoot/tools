@@ -245,7 +245,7 @@
         const PHYSICS = {
             puckFriction: 0.99,        // パックの摩擦（0.99 = よく滑る）
             puckMaxSpeed: 15,          // パックの最大速度
-            paddleSpeedMultiplier: 1.5 // パドルの速度がパックに与える影響
+            paddleSpeedMultiplier: 2.5 // パドルの速度がパックに与える影響
         };
 
         // ゲーム状態
@@ -562,14 +562,24 @@
             if (paddle.isDestroyed) return; // 破壊されたパドルは衝突しない
 
             if (checkCollision(puck, paddle)) {
-                // ハイパーパックがパドルに当たった場合、パドル破壊
+                // ハイパーパックがパドルに当たった場合
                 if (puck.isHyper && puck.hyperOwner !== playerNum) {
-                    paddle.isDestroyed = true;
-                    paddle.destroyedTime = Date.now();
-                    createPaddleDestroyEffect(paddle.x, paddle.y, playerNum);
-                    puck.isHyper = false; // ハイパー状態は貫通後に解除
-                    puck.hyperOwner = null;
-                    return; // 貫通するので反射しない
+                    // パドルがハイパー発動中の場合は破壊されない（ハイパーvsハイパー）
+                    if (paddle.hyperState === 'active') {
+                        // ハイパー同士の衝突：両方のハイパー状態を解除して通常反射
+                        puck.isHyper = false;
+                        puck.hyperOwner = null;
+                        createHitEffect(puck.x, puck.y);
+                        // 通常の反射処理に進む
+                    } else {
+                        // パドルが通常状態：破壊して貫通
+                        paddle.isDestroyed = true;
+                        paddle.destroyedTime = Date.now();
+                        createPaddleDestroyEffect(paddle.x, paddle.y, playerNum);
+                        puck.isHyper = false; // ハイパー状態は貫通後に解除
+                        puck.hyperOwner = null;
+                        return; // 貫通するので反射しない
+                    }
                 }
 
                 // 衝突方向
