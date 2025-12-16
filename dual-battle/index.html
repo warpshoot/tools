@@ -141,6 +141,70 @@
             font-size: 16px;
             opacity: 0.8;
         }
+
+        .hyper-indicator {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            transition: all 0.3s ease;
+        }
+
+        .hyper-indicator.p1 {
+            bottom: 80px;
+            left: 20px;
+        }
+
+        .hyper-indicator.p2 {
+            top: 80px;
+            right: 20px;
+            transform: rotate(180deg);
+        }
+
+        .hyper-indicator.available {
+            background: rgba(255, 215, 0, 0.3);
+            border: 3px solid rgba(255, 215, 0, 0.8);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+            animation: pulse 2s infinite;
+        }
+
+        .hyper-indicator.active {
+            background: rgba(255, 0, 0, 0.5);
+            border: 3px solid rgba(255, 0, 0, 1);
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.9);
+            animation: activePulse 0.5s infinite;
+        }
+
+        .hyper-indicator.used {
+            background: rgba(100, 100, 100, 0.2);
+            border: 3px solid rgba(100, 100, 100, 0.5);
+            opacity: 0.4;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
+        @keyframes activePulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 30px rgba(255, 0, 0, 0.9);
+            }
+            50% {
+                transform: scale(1.15);
+                box-shadow: 0 0 50px rgba(255, 0, 0, 1);
+            }
+        }
     </style>
 </head>
 
@@ -159,9 +223,12 @@
         </div>
     </div>
 
+    <div class="hyper-indicator p1 available" id="hyper1">⚡</div>
+    <div class="hyper-indicator p2 available" id="hyper2">⚡</div>
+
     <div class="instructions">
         <h3>ドラッグしてパックを打ち返せ！</h3>
-        <p>3点先取で勝利</p>
+        <p>3点先取で勝利 | トリプルタップでハイパー発動</p>
     </div>
 
     <div class="game-over" id="gameOver">
@@ -196,7 +263,9 @@
             vx: 0,
             vy: 0,
             radius: 15,
-            trail: [] // 軌跡用
+            trail: [],
+            isHyper: false, // ハイパー状態
+            hyperOwner: null // ハイパーパックを打ったプレイヤー（1 or 2）
         };
 
         // パドル
@@ -206,8 +275,13 @@
             prevX: 0,
             prevY: 0,
             radius: 35,
+            baseRadius: 35,
             isDragging: false,
-            touchId: null
+            touchId: null,
+            hyperState: 'available', // 'available', 'active', 'used'
+            isDestroyed: false,
+            tapTimes: [], // トリプルタップ検出用
+            lastTapTime: 0
         };
 
         let paddle2 = {
@@ -216,8 +290,13 @@
             prevX: 0,
             prevY: 0,
             radius: 35,
+            baseRadius: 35,
             isDragging: false,
-            touchId: null
+            touchId: null,
+            hyperState: 'available',
+            isDestroyed: false,
+            tapTimes: [],
+            lastTapTime: 0
         };
 
         // キャンバスサイズ設定
@@ -244,6 +323,75 @@
 
         // パーティクル
         const particles = [];
+
+        // ハイパーパワー関連
+        function activateHyper(paddle, playerNum) {
+            if (paddle.hyperState !== 'available' || paddle.isDestroyed) return;
+
+            paddle.hyperState = 'active';
+            paddle.radius = paddle.baseRadius * 1.5;
+            updateHyperUI();
+
+            // 効果音的なフィードバック（パーティクル）
+            createHyperActivationEffect(paddle.x, paddle.y, playerNum);
+        }
+
+        function deactivateHyper(paddle) {
+            if (paddle.hyperState === 'active') {
+                paddle.hyperState = 'used';
+                paddle.radius = paddle.baseRadius;
+                updateHyperUI();
+            }
+        }
+
+        function updateHyperUI() {
+            const hyper1 = document.getElementById('hyper1');
+            const hyper2 = document.getElementById('hyper2');
+
+            hyper1.className = `hyper-indicator p1 ${paddle1.hyperState}`;
+            hyper2.className = `hyper-indicator p2 ${paddle2.hyperState}`;
+        }
+
+        function checkTripleTap(paddle, playerNum) {
+            const now = Date.now();
+            paddle.tapTimes.push(now);
+
+            // 1秒以内のタップのみ保持
+            paddle.tapTimes = paddle.tapTimes.filter(t => now - t < 1000);
+
+            // トリプルタップ検出
+            if (paddle.tapTimes.length >= 3) {
+                activateHyper(paddle, playerNum);
+                paddle.tapTimes = [];
+            }
+        }
+
+        // ハイパー発動エフェクト
+        function createHyperActivationEffect(x, y, playerNum) {
+            for (let i = 0; i < 30; i++) {
+                const angle = (Math.PI * 2 * i) / 30;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(angle) * 8,
+                    vy: Math.sin(angle) * 8,
+                    life: 1,
+                    color: playerNum === 1 ? '#ff0066' : '#00ffff'
+                });
+            }
+        }
+
+        // パドル破壊エフェクト
+        function createPaddleDestroyEffect(x, y, playerNum) {
+            for (let i = 0; i < 50; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 15,
+                    vy: (Math.random() - 0.5) * 15,
+                    life: 1.5,
+                    color: playerNum === 1 ? '#ff6600' : '#00ffff'
+                });
+            }
+        }
 
         // ゴール描画
         function drawGoals() {
@@ -290,14 +438,20 @@
             for (let i = 0; i < puck.trail.length; i++) {
                 const point = puck.trail[i];
                 const age = i / puck.trail.length; // 0（古い）から1（新しい）
-                const opacity = age * 0.6;
+                const opacity = age * (puck.isHyper ? 0.9 : 0.6);
                 const radius = puck.radius * (0.3 + age * 0.7);
 
-                // グラデーション
+                // グラデーション（ハイパー時は赤）
                 const gradient = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius);
-                gradient.addColorStop(0, `rgba(255, 255, 100, ${opacity})`);
-                gradient.addColorStop(0.5, `rgba(255, 200, 50, ${opacity * 0.7})`);
-                gradient.addColorStop(1, `rgba(255, 150, 0, 0)`);
+                if (puck.isHyper) {
+                    gradient.addColorStop(0, `rgba(255, 0, 0, ${opacity})`);
+                    gradient.addColorStop(0.5, `rgba(255, 50, 0, ${opacity * 0.8})`);
+                    gradient.addColorStop(1, `rgba(255, 100, 0, 0)`);
+                } else {
+                    gradient.addColorStop(0, `rgba(255, 255, 100, ${opacity})`);
+                    gradient.addColorStop(0.5, `rgba(255, 200, 50, ${opacity * 0.7})`);
+                    gradient.addColorStop(1, `rgba(255, 150, 0, 0)`);
+                }
 
                 ctx.beginPath();
                 ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
@@ -307,15 +461,21 @@
 
             // パック本体
             const gradient = ctx.createRadialGradient(puck.x, puck.y, 0, puck.x, puck.y, puck.radius);
-            gradient.addColorStop(0, '#fff');
-            gradient.addColorStop(0.5, '#ffff00');
-            gradient.addColorStop(1, '#ff6600');
+            if (puck.isHyper) {
+                gradient.addColorStop(0, '#fff');
+                gradient.addColorStop(0.3, '#ff0000');
+                gradient.addColorStop(1, '#ff6600');
+            } else {
+                gradient.addColorStop(0, '#fff');
+                gradient.addColorStop(0.5, '#ffff00');
+                gradient.addColorStop(1, '#ff6600');
+            }
 
             ctx.beginPath();
             ctx.arc(puck.x, puck.y, puck.radius, 0, Math.PI * 2);
             ctx.fillStyle = gradient;
-            ctx.shadowBlur = 25;
-            ctx.shadowColor = '#ffff00';
+            ctx.shadowBlur = puck.isHyper ? 40 : 25;
+            ctx.shadowColor = puck.isHyper ? '#ff0000' : '#ffff00';
             ctx.fill();
             ctx.shadowBlur = 0;
 
@@ -324,10 +484,44 @@
             ctx.arc(puck.x - 5, puck.y - 5, 5, 0, Math.PI * 2);
             ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
             ctx.fill();
+
+            // ハイパー時の稲妻エフェクト
+            if (puck.isHyper) {
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 2;
+                for (let i = 0; i < 3; i++) {
+                    const angle = (Date.now() / 100 + i * Math.PI * 2 / 3) % (Math.PI * 2);
+                    const x1 = puck.x + Math.cos(angle) * puck.radius;
+                    const y1 = puck.y + Math.sin(angle) * puck.radius;
+                    const x2 = puck.x + Math.cos(angle) * (puck.radius + 10);
+                    const y2 = puck.y + Math.sin(angle) * (puck.radius + 10);
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+                }
+            }
         }
 
         // パドル描画
         function drawPaddle(paddle, color1, color2) {
+            if (paddle.isDestroyed) return; // 破壊されたら描画しない
+
+            // ハイパー時のオーラ
+            if (paddle.hyperState === 'active') {
+                const time = Date.now() / 200;
+                for (let i = 0; i < 3; i++) {
+                    const offset = i * 15 + Math.sin(time + i) * 5;
+                    ctx.beginPath();
+                    ctx.arc(paddle.x, paddle.y, paddle.radius + offset, 0, Math.PI * 2);
+                    ctx.strokeStyle = color1;
+                    ctx.lineWidth = 2;
+                    ctx.globalAlpha = 0.3 - i * 0.1;
+                    ctx.stroke();
+                    ctx.globalAlpha = 1;
+                }
+            }
+
             const gradient = ctx.createRadialGradient(paddle.x, paddle.y, 0, paddle.x, paddle.y, paddle.radius);
             gradient.addColorStop(0, color1);
             gradient.addColorStop(1, color2);
@@ -336,7 +530,7 @@
             ctx.arc(paddle.x, paddle.y, paddle.radius, 0, Math.PI * 2);
             ctx.fillStyle = gradient;
             ctx.globalAlpha = 0.6;
-            ctx.shadowBlur = 20;
+            ctx.shadowBlur = paddle.hyperState === 'active' ? 40 : 20;
             ctx.shadowColor = color1;
             ctx.fill();
             ctx.globalAlpha = 1;
@@ -346,7 +540,7 @@
             ctx.beginPath();
             ctx.arc(paddle.x, paddle.y, paddle.radius, 0, Math.PI * 2);
             ctx.strokeStyle = color1;
-            ctx.lineWidth = 3;
+            ctx.lineWidth = paddle.hyperState === 'active' ? 5 : 3;
             ctx.stroke();
         }
 
@@ -359,8 +553,19 @@
         }
 
         // パドルとパックの衝突処理
-        function handlePaddleCollision(paddle) {
+        function handlePaddleCollision(paddle, playerNum) {
+            if (paddle.isDestroyed) return; // 破壊されたパドルは衝突しない
+
             if (checkCollision(puck, paddle)) {
+                // ハイパーパックがパドルに当たった場合、パドル破壊
+                if (puck.isHyper && puck.hyperOwner !== playerNum) {
+                    paddle.isDestroyed = true;
+                    createPaddleDestroyEffect(paddle.x, paddle.y, playerNum);
+                    puck.isHyper = false; // ハイパー状態は貫通後に解除
+                    puck.hyperOwner = null;
+                    return; // 貫通するので反射しない
+                }
+
                 // 衝突方向
                 const dx = puck.x - paddle.x;
                 const dy = puck.y - paddle.y;
@@ -380,14 +585,25 @@
                 puck.vy = puck.vy - 2 * dotProduct * ny;
 
                 // パドルの速度を加算
-                puck.vx += paddleVx * PHYSICS.paddleSpeedMultiplier;
-                puck.vy += paddleVy * PHYSICS.paddleSpeedMultiplier;
+                let speedMult = PHYSICS.paddleSpeedMultiplier;
 
-                // 最大速度制限
+                // ハイパー発動中にパックを弾いた場合
+                if (paddle.hyperState === 'active') {
+                    speedMult *= 2; // 2倍速
+                    puck.isHyper = true;
+                    puck.hyperOwner = playerNum;
+                    deactivateHyper(paddle); // ハイパー状態解除
+                }
+
+                puck.vx += paddleVx * speedMult;
+                puck.vy += paddleVy * speedMult;
+
+                // 最大速度制限（ハイパー時は2倍）
+                const maxSpeed = puck.isHyper ? PHYSICS.puckMaxSpeed * 2 : PHYSICS.puckMaxSpeed;
                 const speed = Math.sqrt(puck.vx * puck.vx + puck.vy * puck.vy);
-                if (speed > PHYSICS.puckMaxSpeed) {
-                    puck.vx = (puck.vx / speed) * PHYSICS.puckMaxSpeed;
-                    puck.vy = (puck.vy / speed) * PHYSICS.puckMaxSpeed;
+                if (speed > maxSpeed) {
+                    puck.vx = (puck.vx / speed) * maxSpeed;
+                    puck.vy = (puck.vy / speed) * maxSpeed;
                 }
 
                 // パックを押し出す
@@ -524,8 +740,8 @@
             }
 
             // パドルとの衝突
-            handlePaddleCollision(paddle1);
-            handlePaddleCollision(paddle2);
+            handlePaddleCollision(paddle1, 1);
+            handlePaddleCollision(paddle2, 2);
 
             // パドルの前回位置を更新（次フレーム用）
             paddle1.prevX = paddle1.x;
@@ -552,6 +768,14 @@
             }
 
             puck.trail = [];
+            puck.isHyper = false;
+            puck.hyperOwner = null;
+
+            // 破壊されたパドルを復活
+            paddle1.isDestroyed = false;
+            paddle2.isDestroyed = false;
+            paddle1.radius = paddle1.baseRadius;
+            paddle2.radius = paddle2.baseRadius;
         }
 
         // スコア更新
@@ -590,8 +814,18 @@
                 winScore: 3
             };
             particles.length = 0;
+
+            // ハイパー状態をリセット
+            paddle1.hyperState = 'available';
+            paddle2.hyperState = 'available';
+            paddle1.isDestroyed = false;
+            paddle2.isDestroyed = false;
+            paddle1.radius = paddle1.baseRadius;
+            paddle2.radius = paddle2.baseRadius;
+
             resetPuck();
             updateScore();
+            updateHyperUI();
             document.getElementById('gameOver').classList.remove('show');
         }
 
@@ -614,6 +848,8 @@
                     if (Math.hypot(pos.x - paddle1.x, pos.y - paddle1.y) < paddle1.radius * 2) {
                         paddle1.isDragging = true;
                         paddle1.touchId = touch.identifier;
+                        // トリプルタップ検出
+                        checkTripleTap(paddle1, 1);
                     }
                 }
                 // Player 2のエリア（上半分）
@@ -621,6 +857,8 @@
                     if (Math.hypot(pos.x - paddle2.x, pos.y - paddle2.y) < paddle2.radius * 2) {
                         paddle2.isDragging = true;
                         paddle2.touchId = touch.identifier;
+                        // トリプルタップ検出
+                        checkTripleTap(paddle2, 2);
                     }
                 }
             }
@@ -632,7 +870,7 @@
                 const pos = getTouchPos(touch);
 
                 // Player 1のパドル
-                if (paddle1.isDragging && paddle1.touchId === touch.identifier) {
+                if (paddle1.isDragging && paddle1.touchId === touch.identifier && !paddle1.isDestroyed) {
                     // エリア制限（下半分のみ）
                     if (pos.y > canvas.height / 2 && pos.y < canvas.height - paddle1.radius) {
                         paddle1.x = Math.max(paddle1.radius, Math.min(canvas.width - paddle1.radius, pos.x));
@@ -641,7 +879,7 @@
                 }
 
                 // Player 2のパドル
-                if (paddle2.isDragging && paddle2.touchId === touch.identifier) {
+                if (paddle2.isDragging && paddle2.touchId === touch.identifier && !paddle2.isDestroyed) {
                     // エリア制限（上半分のみ）
                     if (pos.y < canvas.height / 2 && pos.y > paddle2.radius) {
                         paddle2.x = Math.max(paddle2.radius, Math.min(canvas.width - paddle2.radius, pos.x));
