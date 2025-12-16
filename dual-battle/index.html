@@ -112,6 +112,74 @@
             opacity: 0.8;
         }
 
+        .ready-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            gap: 60px;
+        }
+
+        .ready-screen.hide {
+            display: none;
+        }
+
+        .ready-message {
+            font-size: 72px;
+            font-weight: bold;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.8);
+            animation: readyPulse 1s infinite;
+        }
+
+        .ready-players {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .ready-player {
+            font-size: 24px;
+            font-weight: bold;
+            padding: 30px;
+            border-radius: 16px;
+            text-align: center;
+            opacity: 0.5;
+            transition: all 0.3s ease;
+        }
+
+        .ready-player.p1 {
+            color: #ff6600;
+            border: 3px solid rgba(255, 102, 0, 0.5);
+        }
+
+        .ready-player.p2 {
+            color: #00ffff;
+            border: 3px solid rgba(0, 255, 255, 0.5);
+            transform: rotate(180deg);
+        }
+
+        .ready-player.ready {
+            opacity: 1;
+            box-shadow: 0 0 30px currentColor;
+        }
+
+        @keyframes readyPulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
         .instructions {
             position: absolute;
             top: 50%;
@@ -144,14 +212,8 @@
 
         .hyper-indicator {
             position: absolute;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
             pointer-events: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
+            font-size: 32px;
             transition: all 0.3s ease;
         }
 
@@ -167,23 +229,18 @@
         }
 
         .hyper-indicator.available {
-            background: rgba(255, 215, 0, 0.15);
-            border: 2px solid rgba(255, 215, 0, 0.6);
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
             animation: pulse 2s infinite;
         }
 
         .hyper-indicator.active {
-            background: rgba(255, 0, 0, 0.5);
-            border: 3px solid rgba(255, 0, 0, 1);
-            box-shadow: 0 0 30px rgba(255, 0, 0, 0.9);
+            text-shadow: 0 0 20px rgba(255, 0, 0, 1), 0 0 40px rgba(255, 0, 0, 0.8);
             animation: activePulse 0.5s infinite;
         }
 
         .hyper-indicator.used {
-            background: rgba(100, 100, 100, 0.2);
-            border: 3px solid rgba(100, 100, 100, 0.5);
-            opacity: 0.4;
+            opacity: 0.3;
+            text-shadow: 0 0 5px rgba(100, 100, 100, 0.5);
         }
 
         @keyframes pulse {
@@ -231,6 +288,14 @@
         <p>3点先取で勝利 | トリプルタップでハイパー発動</p>
     </div>
 
+    <div class="ready-screen" id="readyScreen">
+        <div class="ready-message">READY?</div>
+        <div class="ready-players">
+            <div class="ready-player p1" id="readyP1">Player 1<br>TAP!</div>
+            <div class="ready-player p2" id="readyP2">Player 2<br>TAP!</div>
+        </div>
+    </div>
+
     <div class="game-over" id="gameOver">
         <h2 id="winnerText">Player 1 WIN!</h2>
         <p>おめでとうございます！</p>
@@ -245,15 +310,18 @@
         const PHYSICS = {
             puckFriction: 0.99,        // パックの摩擦（0.99 = よく滑る）
             puckMaxSpeed: 15,          // パックの最大速度
-            paddleSpeedMultiplier: 1.5 // パドルの速度がパックに与える影響
+            paddleSpeedMultiplier: 2.5 // パドルの速度がパックに与える影響
         };
 
         // ゲーム状態
         let gameState = {
-            running: true,
+            running: false, // 準備フェーズから開始
             score1: 0,
             score2: 0,
-            winScore: 3
+            winScore: 3,
+            readyPhase: true,
+            player1Ready: false,
+            player2Ready: false
         };
 
         // 全画面モードフラグ
@@ -349,6 +417,14 @@
             }
         }
 
+        function cancelHyper(paddle) {
+            if (paddle.hyperState === 'active') {
+                paddle.hyperState = 'available';
+                paddle.radius = paddle.baseRadius;
+                updateHyperUI();
+            }
+        }
+
         function updateHyperUI() {
             const hyper1 = document.getElementById('hyper1');
             const hyper2 = document.getElementById('hyper2');
@@ -366,7 +442,12 @@
 
             // トリプルタップ検出
             if (paddle.tapTimes.length >= 3) {
-                activateHyper(paddle, playerNum);
+                // ハイパー発動中の場合は解除、それ以外は発動
+                if (paddle.hyperState === 'active') {
+                    cancelHyper(paddle);
+                } else if (paddle.hyperState === 'available') {
+                    activateHyper(paddle, playerNum);
+                }
                 paddle.tapTimes = [];
             }
         }
@@ -562,14 +643,22 @@
             if (paddle.isDestroyed) return; // 破壊されたパドルは衝突しない
 
             if (checkCollision(puck, paddle)) {
-                // ハイパーパックがパドルに当たった場合、パドル破壊
+                // ハイパーパックがパドルに当たった場合
                 if (puck.isHyper && puck.hyperOwner !== playerNum) {
-                    paddle.isDestroyed = true;
-                    paddle.destroyedTime = Date.now();
-                    createPaddleDestroyEffect(paddle.x, paddle.y, playerNum);
-                    puck.isHyper = false; // ハイパー状態は貫通後に解除
-                    puck.hyperOwner = null;
-                    return; // 貫通するので反射しない
+                    // パドルがハイパー発動中の場合は破壊されない（ハイパーvsハイパー）
+                    if (paddle.hyperState === 'active') {
+                        // ハイパー同士の衝突：ハイパー状態を維持したまま通常反射
+                        createHitEffect(puck.x, puck.y);
+                        // 通常の反射処理に進む
+                    } else {
+                        // パドルが通常状態：破壊して貫通
+                        paddle.isDestroyed = true;
+                        paddle.destroyedTime = Date.now();
+                        createPaddleDestroyEffect(paddle.x, paddle.y, playerNum);
+                        puck.isHyper = false; // ハイパー状態は貫通後に解除
+                        puck.hyperOwner = null;
+                        return; // 貫通するので反射しない
+                    }
                 }
 
                 // 衝突方向
@@ -832,13 +921,45 @@
             gameOver.classList.add('show');
         }
 
+        // 準備フェーズ処理
+        function handleReadyTap(playerNum) {
+            if (!gameState.readyPhase) return;
+
+            if (playerNum === 1) {
+                gameState.player1Ready = true;
+                document.getElementById('readyP1').classList.add('ready');
+            } else {
+                gameState.player2Ready = true;
+                document.getElementById('readyP2').classList.add('ready');
+            }
+
+            // 両方準備完了したらゲーム開始
+            if (gameState.player1Ready && gameState.player2Ready) {
+                setTimeout(() => {
+                    document.getElementById('readyScreen').querySelector('.ready-message').textContent = 'START!';
+                    setTimeout(() => {
+                        startGame();
+                    }, 1000);
+                }, 300);
+            }
+        }
+
+        function startGame() {
+            gameState.readyPhase = false;
+            gameState.running = true;
+            document.getElementById('readyScreen').classList.add('hide');
+        }
+
         // ゲーム再スタート
         function restartGame() {
             gameState = {
-                running: true,
+                running: false,
                 score1: 0,
                 score2: 0,
-                winScore: 3
+                winScore: 3,
+                readyPhase: true,
+                player1Ready: false,
+                player2Ready: false
             };
             particles.length = 0;
 
@@ -854,6 +975,12 @@
             updateScore();
             updateHyperUI();
             document.getElementById('gameOver').classList.remove('show');
+
+            // 準備画面を再表示
+            document.getElementById('readyScreen').classList.remove('hide');
+            document.getElementById('readyScreen').querySelector('.ready-message').textContent = 'READY?';
+            document.getElementById('readyP1').classList.remove('ready');
+            document.getElementById('readyP2').classList.remove('ready');
         }
 
         // 全画面モードリクエスト
@@ -882,6 +1009,16 @@
             requestFullscreenOnce();
             for (let touch of e.changedTouches) {
                 const pos = getTouchPos(touch);
+
+                // 準備フェーズ中のタップ処理
+                if (gameState.readyPhase) {
+                    if (pos.y > canvas.height / 2) {
+                        handleReadyTap(1);
+                    } else {
+                        handleReadyTap(2);
+                    }
+                    continue;
+                }
 
                 // Player 1のエリア（下半分）
                 if (pos.y > canvas.height / 2) {
@@ -951,6 +1088,16 @@
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
+
+            // 準備フェーズ中のクリック処理
+            if (gameState.readyPhase) {
+                if (y > canvas.height / 2) {
+                    handleReadyTap(1);
+                } else {
+                    handleReadyTap(2);
+                }
+                return;
+            }
 
             if (y > canvas.height / 2) {
                 if (Math.hypot(x - paddle1.x, y - paddle1.y) < paddle1.radius * 2) {
