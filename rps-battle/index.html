@@ -334,6 +334,38 @@
                 transform: scale(1.1);
             }
         }
+
+        /* 速度レベル表示 */
+        .speed-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 20px;
+            font-weight: bold;
+            color: rgba(255, 255, 255, 0.6);
+            pointer-events: none;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            letter-spacing: 2px;
+        }
+
+        @keyframes speedFlash {
+            0% {
+                color: rgba(255, 255, 255, 0.6);
+                text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+                transform: translate(-50%, -50%) scale(1);
+            }
+            50% {
+                color: rgba(255, 215, 0, 1);
+                text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+            100% {
+                color: rgba(255, 255, 255, 0.6);
+                text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
     </style>
 </head>
 
@@ -364,6 +396,8 @@
     </div>
 
     <canvas id="gameCanvas"></canvas>
+
+    <div class="speed-display" id="speedLevel">SPEED LV.1</div>
 
     <div class="hud hud-top">
         <span class="heart p2" id="life2-1">❤️</span>
@@ -401,7 +435,9 @@
 
         // 調整可能なパラメータ
         const CONFIG = {
-            handSpeed: 5,         // 手の移動速度
+            handSpeed: 5,         // 手の初期移動速度
+            handSpeedIncrement: 0.3,  // 発射ごとの速度増加量
+            maxHandSpeed: 15,     // 手の最大移動速度
             handSize: 40,         // 手のサイズ（半径）
             initialLives: 3,      // 初期ライフ
         };
@@ -414,6 +450,8 @@
             player2Ready: false,
             lives1: CONFIG.initialLives,
             lives2: CONFIG.initialLives,
+            currentHandSpeed: CONFIG.handSpeed,  // 現在の手の速度
+            totalShots: 0,  // 合計発射回数
         };
 
         // 手の状態管理
@@ -494,18 +532,45 @@
                     x: canvas.width / 2,
                     y: canvas.height - 150,
                     emoji,
-                    vy: -CONFIG.handSpeed  // 上向き
+                    vy: -gameState.currentHandSpeed  // 上向き
                 };
                 enableButtons(1, false);
+                increaseSpeed();
             } else if (player === 2 && !hands.player2) {
                 hands.player2 = {
                     type,
                     x: canvas.width / 2,
                     y: 70,
                     emoji,
-                    vy: CONFIG.handSpeed  // 下向き
+                    vy: gameState.currentHandSpeed  // 下向き
                 };
                 enableButtons(2, false);
+                increaseSpeed();
+            }
+        }
+
+        // 速度を上げる
+        function increaseSpeed() {
+            gameState.totalShots++;
+            const newSpeed = CONFIG.handSpeed + (gameState.totalShots * CONFIG.handSpeedIncrement);
+            gameState.currentHandSpeed = Math.min(newSpeed, CONFIG.maxHandSpeed);
+            updateSpeedDisplay();
+        }
+
+        // 速度表示を更新
+        function updateSpeedDisplay() {
+            const speedLevel = Math.floor((gameState.currentHandSpeed - CONFIG.handSpeed) / CONFIG.handSpeedIncrement) + 1;
+            const speedDisplay = document.getElementById('speedLevel');
+            if (speedDisplay) {
+                speedDisplay.textContent = `SPEED LV.${speedLevel}`;
+
+                // 速度が上がったときのフラッシュエフェクト
+                if (speedLevel > 1 && gameState.totalShots % 2 === 0) {
+                    speedDisplay.style.animation = 'none';
+                    setTimeout(() => {
+                        speedDisplay.style.animation = 'speedFlash 0.5s ease';
+                    }, 10);
+                }
             }
         }
 
@@ -643,6 +708,8 @@
                 player2Ready: false,
                 lives1: CONFIG.initialLives,
                 lives2: CONFIG.initialLives,
+                currentHandSpeed: CONFIG.handSpeed,
+                totalShots: 0,
             };
             hands.player1 = null;
             hands.player2 = null;
@@ -650,6 +717,7 @@
 
             updateLifeDisplay(1);
             updateLifeDisplay(2);
+            updateSpeedDisplay();
             enableButtons(1, false);
             enableButtons(2, false);
 
