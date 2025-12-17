@@ -334,6 +334,133 @@
                 transform: scale(1.1);
             }
         }
+
+        /* ダメージエフェクト */
+        .damage-overlay {
+            position: absolute;
+            width: 100%;
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        .damage-overlay-bottom {
+            top: 50%;
+            bottom: 0;
+        }
+
+        .damage-overlay-top {
+            top: 0;
+            bottom: 50%;
+        }
+
+        .damage-overlay.show {
+            animation: damageFlash 0.6s ease-out;
+        }
+
+        @keyframes damageFlash {
+            0%, 100% {
+                opacity: 0;
+                background: transparent;
+            }
+            20% {
+                opacity: 0.4;
+                background: rgba(255, 0, 0, 0.3);
+            }
+            40% {
+                opacity: 0.2;
+                background: rgba(255, 0, 0, 0.2);
+            }
+            60% {
+                opacity: 0.3;
+                background: rgba(255, 0, 0, 0.25);
+            }
+        }
+
+        .damage-shake {
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% {
+                transform: translateX(0);
+            }
+            10%, 30%, 50%, 70%, 90% {
+                transform: translateX(-10px);
+            }
+            20%, 40%, 60%, 80% {
+                transform: translateX(10px);
+            }
+        }
+
+        /* ダメージテキスト表示 */
+        .damage-text {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            font-size: 72px;
+            font-weight: bold;
+            color: #ff0000;
+            text-shadow: 0 0 20px rgba(255, 0, 0, 0.8), 0 0 40px rgba(255, 0, 0, 0.6);
+            pointer-events: none;
+            opacity: 0;
+            z-index: 100;
+        }
+
+        .damage-text-bottom {
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .damage-text-top {
+            top: 50%;
+            transform: translateY(-50%) rotate(180deg);
+        }
+
+        .damage-text.show {
+            animation: damageTextAnim 1s ease-out forwards;
+        }
+
+        @keyframes damageTextAnim {
+            0% {
+                opacity: 0;
+                transform: translateY(-50%) scale(0.5);
+            }
+            20% {
+                opacity: 1;
+                transform: translateY(-50%) scale(1.2);
+            }
+            80% {
+                opacity: 1;
+                transform: translateY(-50%) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-50%) scale(0.8);
+            }
+        }
+
+        .damage-text-top.show {
+            animation: damageTextAnimTop 1s ease-out forwards;
+        }
+
+        @keyframes damageTextAnimTop {
+            0% {
+                opacity: 0;
+                transform: translateY(-50%) rotate(180deg) scale(0.5);
+            }
+            20% {
+                opacity: 1;
+                transform: translateY(-50%) rotate(180deg) scale(1.2);
+            }
+            80% {
+                opacity: 1;
+                transform: translateY(-50%) rotate(180deg) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-50%) rotate(180deg) scale(0.8);
+            }
+        }
     </style>
 </head>
 
@@ -388,6 +515,12 @@
         <button class="hand-btn p2" id="scissors2" onclick="shootHand(2, 'scissors')">✌️</button>
         <button class="hand-btn p2" id="paper2" onclick="shootHand(2, 'paper')">✋</button>
     </div>
+
+    <div class="damage-overlay damage-overlay-bottom" id="damageOverlay1"></div>
+    <div class="damage-overlay damage-overlay-top" id="damageOverlay2"></div>
+
+    <div class="damage-text damage-text-bottom" id="damageText1">DAMAGE!</div>
+    <div class="damage-text damage-text-top" id="damageText2">DAMAGE!</div>
 
     <div class="game-over" id="gameOver">
         <h2 id="winnerText">Player 1 WIN!</h2>
@@ -605,12 +738,14 @@
             if (player === 1) {
                 gameState.lives1--;
                 updateLifeDisplay(1);
+                showDamageEffect(1);
                 if (gameState.lives1 <= 0) {
                     endGame(2);
                 }
             } else {
                 gameState.lives2--;
                 updateLifeDisplay(2);
+                showDamageEffect(2);
                 if (gameState.lives2 <= 0) {
                     endGame(1);
                 }
@@ -618,6 +753,43 @@
             // 1点入るごとにスピードをリセット
             gameState.currentHandSpeed = CONFIG.handSpeed;
             gameState.totalShots = 0;
+        }
+
+        // ダメージエフェクト表示
+        function showDamageEffect(player) {
+            const overlay = document.getElementById(`damageOverlay${player}`);
+            const damageText = document.getElementById(`damageText${player}`);
+            const controls = player === 1 ?
+                document.querySelector('.controls-bottom') :
+                document.querySelector('.controls-top');
+            const hud = player === 1 ?
+                document.querySelector('.hud-bottom') :
+                document.querySelector('.hud-top');
+
+            // オーバーレイフラッシュ
+            overlay.classList.remove('show');
+            void overlay.offsetWidth; // リフロー強制
+            overlay.classList.add('show');
+
+            // ダメージテキスト表示
+            damageText.classList.remove('show');
+            void damageText.offsetWidth; // リフロー強制
+            damageText.classList.add('show');
+
+            // シェイクエフェクト
+            [controls, hud].forEach(element => {
+                element.classList.remove('damage-shake');
+                void element.offsetWidth; // リフロー強制
+                element.classList.add('damage-shake');
+            });
+
+            // アニメーション終了後にクラスを削除
+            setTimeout(() => {
+                overlay.classList.remove('show');
+                damageText.classList.remove('show');
+                controls.classList.remove('damage-shake');
+                hud.classList.remove('damage-shake');
+            }, 1000);
         }
 
         // ライフ表示更新
