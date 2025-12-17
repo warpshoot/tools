@@ -27,6 +27,13 @@
       "title": "Air Hockey",
       "description": "2-player air hockey on one screen",
       "device": "mobile"
+    },
+    {
+      "path": "./rps-battle/",
+      "icon": "✊✌️✋",
+      "title": "RPS Battle",
+      "description": "Real-time rock-paper-scissors battle game for 2 players",
+      "device": "mobile"
     }
   ]
 }

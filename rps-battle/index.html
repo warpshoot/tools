@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>じゃんけんバトル</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            touch-action: none;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(180deg, #1a0033 0%, #000 50%, #001a33 100%);
+            touch-action: none;
+        }
+
+        /* タイトル画面 */
+        .title-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, #1a0033 0%, #000 50%, #001a33 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 300;
+            gap: 40px;
+        }
+
+        .title-screen.hide {
+            display: none;
+        }
+
+        .title-screen h1 {
+            font-size: 48px;
+            font-weight: bold;
+            text-shadow: 0 0 30px rgba(255, 100, 255, 0.8);
+            animation: titlePulse 2s infinite;
+        }
+
+        .title-screen .subtitle {
+            font-size: 18px;
+            opacity: 0.7;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        .start-btn {
+            background: linear-gradient(135deg, #ff0066, #6600ff);
+            color: #fff;
+            border: 3px solid #fff;
+            padding: 20px 60px;
+            font-size: 24px;
+            font-weight: bold;
+            border-radius: 12px;
+            cursor: pointer;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 30px rgba(255, 0, 102, 0.5);
+            transition: all 0.2s ease;
+        }
+
+        .start-btn:active {
+            transform: scale(0.95);
+        }
+
+        @keyframes titlePulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        /* ライフ表示 */
+        .hud {
+            position: absolute;
+            width: 100%;
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .hud-top {
+            top: 20px;
+            transform: rotate(180deg);
+        }
+
+        .hud-bottom {
+            bottom: 120px;
+        }
+
+        .heart {
+            font-size: 36px;
+            filter: drop-shadow(0 0 10px currentColor);
+        }
+
+        .heart.p1 {
+            color: #ff6600;
+        }
+
+        .heart.p2 {
+            color: #00ffff;
+        }
+
+        .heart.lost {
+            opacity: 0.2;
+        }
+
+        /* コントロールボタンエリア */
+        .controls {
+            position: absolute;
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 20px;
+            pointer-events: auto;
+        }
+
+        .controls-bottom {
+            bottom: 0;
+        }
+
+        .controls-top {
+            top: 0;
+            transform: rotate(180deg);
+        }
+
+        .hand-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid;
+            border-radius: 50%;
+            width: 90px;
+            height: 90px;
+            font-size: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .hand-btn:active {
+            transform: scale(0.9);
+        }
+
+        .hand-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .hand-btn.p1 {
+            border-color: #ff6600;
+            box-shadow: 0 0 20px rgba(255, 102, 0, 0.5);
+        }
+
+        .hand-btn.p2 {
+            border-color: #00ffff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+
+        /* ゲーム終了画面 */
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            padding: 40px;
+            border-radius: 16px;
+            text-align: center;
+            display: none;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            z-index: 200;
+        }
+
+        .game-over.show {
+            display: block;
+        }
+
+        .game-over h2 {
+            font-size: 36px;
+            margin-bottom: 16px;
+            text-shadow: 0 0 20px currentColor;
+        }
+
+        .game-over p {
+            font-size: 20px;
+            margin-bottom: 24px;
+            opacity: 0.8;
+        }
+
+        .restart-btn {
+            background: linear-gradient(90deg, #ff0066, #ff6600);
+            color: #fff;
+            border: none;
+            padding: 16px 32px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+
+        .restart-btn:active {
+            opacity: 0.8;
+        }
+
+        /* 準備画面 */
+        .ready-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 250;
+            gap: 60px;
+        }
+
+        .ready-screen.hide {
+            display: none;
+        }
+
+        .ready-message {
+            font-size: 72px;
+            font-weight: bold;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.8);
+            animation: readyPulse 1s infinite;
+        }
+
+        .ready-players {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .ready-player {
+            font-size: 24px;
+            font-weight: bold;
+            padding: 30px;
+            border-radius: 16px;
+            text-align: center;
+            opacity: 0.5;
+            transition: all 0.3s ease;
+        }
+
+        .ready-player.p1 {
+            color: #ff6600;
+            border: 3px solid rgba(255, 102, 0, 0.5);
+        }
+
+        .ready-player.p2 {
+            color: #00ffff;
+            border: 3px solid rgba(0, 255, 255, 0.5);
+            transform: rotate(180deg);
+        }
+
+        .ready-player.ready {
+            opacity: 1;
+            box-shadow: 0 0 30px currentColor;
+        }
+
+        .ready-player .ready-text {
+            display: none;
+            font-size: 36px;
+            font-weight: bold;
+            margin-top: 20px;
+            text-shadow: 0 0 20px currentColor;
+        }
+
+        .ready-player.ready .go-btn {
+            display: none;
+        }
+
+        .ready-player.ready .ready-text {
+            display: block;
+        }
+
+        .go-btn {
+            margin-top: 20px;
+            padding: 16px 40px;
+            font-size: 32px;
+            font-weight: bold;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
+            border: 3px solid currentColor;
+            border-radius: 12px;
+            color: inherit;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: all 0.2s ease;
+            text-shadow: 0 0 10px currentColor;
+            box-shadow: 0 0 20px currentColor;
+        }
+
+        .go-btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 30px currentColor;
+        }
+
+        @keyframes readyPulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="title-screen" id="titleScreen">
+        <h1>✊✌️✋ じゃんけんバトル</h1>
+        <div class="subtitle">
+            スマホを2人で共有して対戦！<br>
+            相手のライフを0にしたら勝利
+        </div>
+        <button class="start-btn" onclick="showReadyScreen()">スタート</button>
+    </div>
+
+    <div class="ready-screen hide" id="readyScreen">
+        <div class="ready-message">READY?</div>
+        <div class="ready-players">
+            <div class="ready-player p1" id="readyP1">
+                <div class="player-label">Player 1</div>
+                <button class="go-btn" onclick="handleReadyTap(1)">GO!</button>
+                <div class="ready-text">READY!</div>
+            </div>
+            <div class="ready-player p2" id="readyP2">
+                <div class="player-label">Player 2</div>
+                <button class="go-btn" onclick="handleReadyTap(2)">GO!</button>
+                <div class="ready-text">READY!</div>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="hud hud-top">
+        <span class="heart p2" id="life2-1">❤️</span>
+        <span class="heart p2" id="life2-2">❤️</span>
+        <span class="heart p2" id="life2-3">❤️</span>
+    </div>
+
+    <div class="hud hud-bottom">
+        <span class="heart p1" id="life1-1">❤️</span>
+        <span class="heart p1" id="life1-2">❤️</span>
+        <span class="heart p1" id="life1-3">❤️</span>
+    </div>
+
+    <div class="controls controls-bottom">
+        <button class="hand-btn p1" id="rock1" onclick="shootHand(1, 'rock')">✊</button>
+        <button class="hand-btn p1" id="scissors1" onclick="shootHand(1, 'scissors')">✌️</button>
+        <button class="hand-btn p1" id="paper1" onclick="shootHand(1, 'paper')">✋</button>
+    </div>
+
+    <div class="controls controls-top">
+        <button class="hand-btn p2" id="rock2" onclick="shootHand(2, 'rock')">✊</button>
+        <button class="hand-btn p2" id="scissors2" onclick="shootHand(2, 'scissors')">✌️</button>
+        <button class="hand-btn p2" id="paper2" onclick="shootHand(2, 'paper')">✋</button>
+    </div>
+
+    <div class="game-over" id="gameOver">
+        <h2 id="winnerText">Player 1 WIN!</h2>
+        <p>おめでとうございます！</p>
+        <button class="restart-btn" onclick="restartGame()">もう一度</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 調整可能なパラメータ
+        const CONFIG = {
+            handSpeed: 5,         // 手の移動速度
+            handSize: 40,         // 手のサイズ（半径）
+            initialLives: 3,      // 初期ライフ
+        };
+
+        // ゲーム状態
+        let gameState = {
+            running: false,
+            readyPhase: false,
+            player1Ready: false,
+            player2Ready: false,
+            lives1: CONFIG.initialLives,
+            lives2: CONFIG.initialLives,
+        };
+
+        // 手の状態管理
+        let hands = {
+            player1: null,  // { type: 'rock'|'scissors'|'paper', x, y, emoji }
+            player2: null,
+        };
+
+        // パーティクル
+        const particles = [];
+
+        // キャンバスサイズ設定
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // タイトル画面から準備画面へ
+        function showReadyScreen() {
+            document.getElementById('titleScreen').classList.add('hide');
+            document.getElementById('readyScreen').classList.remove('hide');
+            gameState.readyPhase = true;
+        }
+
+        // 準備フェーズ処理
+        function handleReadyTap(playerNum) {
+            if (!gameState.readyPhase) return;
+
+            if (playerNum === 1) {
+                gameState.player1Ready = true;
+                document.getElementById('readyP1').classList.add('ready');
+            } else {
+                gameState.player2Ready = true;
+                document.getElementById('readyP2').classList.add('ready');
+            }
+
+            // 両方準備完了したらゲーム開始
+            if (gameState.player1Ready && gameState.player2Ready) {
+                setTimeout(() => {
+                    document.getElementById('readyScreen').querySelector('.ready-message').textContent = 'START!';
+                    setTimeout(() => {
+                        startGame();
+                    }, 1000);
+                }, 300);
+            }
+        }
+
+        // ゲーム開始
+        function startGame() {
+            gameState.readyPhase = false;
+            gameState.running = true;
+            document.getElementById('readyScreen').classList.add('hide');
+            enableButtons(1, true);
+            enableButtons(2, true);
+        }
+
+        // ボタンの有効/無効化
+        function enableButtons(player, enabled) {
+            const buttons = [
+                document.getElementById(`rock${player}`),
+                document.getElementById(`scissors${player}`),
+                document.getElementById(`paper${player}`)
+            ];
+            buttons.forEach(btn => btn.disabled = !enabled);
+        }
+
+        // 手を発射
+        function shootHand(player, type) {
+            if (!gameState.running) return;
+
+            const emoji = type === 'rock' ? '✊' : type === 'scissors' ? '✌️' : '✋';
+
+            if (player === 1 && !hands.player1) {
+                hands.player1 = {
+                    type,
+                    x: canvas.width / 2,
+                    y: canvas.height - 150,
+                    emoji,
+                    vy: -CONFIG.handSpeed  // 上向き
+                };
+                enableButtons(1, false);
+            } else if (player === 2 && !hands.player2) {
+                hands.player2 = {
+                    type,
+                    x: canvas.width / 2,
+                    y: 70,
+                    emoji,
+                    vy: CONFIG.handSpeed  // 下向き
+                };
+                enableButtons(2, false);
+            }
+        }
+
+        // じゃんけん判定（hand1がhand2に勝つかチェック）
+        function winsAgainst(hand1Type, hand2Type) {
+            return (
+                (hand1Type === 'rock' && hand2Type === 'scissors') ||
+                (hand1Type === 'scissors' && hand2Type === 'paper') ||
+                (hand1Type === 'paper' && hand2Type === 'rock')
+            );
+        }
+
+        // 衝突判定
+        function checkHandCollision() {
+            if (!hands.player1 || !hands.player2) return;
+
+            const dx = hands.player1.x - hands.player2.x;
+            const dy = hands.player1.y - hands.player2.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < CONFIG.handSize * 2) {
+                // 衝突！じゃんけん判定
+                const p1Type = hands.player1.type;
+                const p2Type = hands.player2.type;
+
+                if (winsAgainst(p1Type, p2Type)) {
+                    // Player 1の勝ち：Player 2の手を消して継続
+                    createCollisionEffect(hands.player2.x, hands.player2.y, hands.player2.emoji);
+                    hands.player2 = null;
+                    enableButtons(2, true);
+                } else if (winsAgainst(p2Type, p1Type)) {
+                    // Player 2の勝ち：Player 1の手を消して継続
+                    createCollisionEffect(hands.player1.x, hands.player1.y, hands.player1.emoji);
+                    hands.player1 = null;
+                    enableButtons(1, true);
+                } else {
+                    // あいこ：両方消滅
+                    createCollisionEffect(hands.player1.x, hands.player1.y, hands.player1.emoji);
+                    createCollisionEffect(hands.player2.x, hands.player2.y, hands.player2.emoji);
+                    hands.player1 = null;
+                    hands.player2 = null;
+                    enableButtons(1, true);
+                    enableButtons(2, true);
+                }
+            }
+        }
+
+        // 手の更新
+        function updateHands() {
+            if (!gameState.running) return;
+
+            // Player 1の手
+            if (hands.player1) {
+                hands.player1.y += hands.player1.vy;
+
+                // Player 2のエリアに到達
+                if (hands.player1.y - CONFIG.handSize < 0) {
+                    damagePlayer(2);
+                    createGoalEffect(hands.player1.x, hands.player1.y);
+                    hands.player1 = null;
+                    enableButtons(1, true);
+                }
+            }
+
+            // Player 2の手
+            if (hands.player2) {
+                hands.player2.y += hands.player2.vy;
+
+                // Player 1のエリアに到達
+                if (hands.player2.y + CONFIG.handSize > canvas.height) {
+                    damagePlayer(1);
+                    createGoalEffect(hands.player2.x, hands.player2.y);
+                    hands.player2 = null;
+                    enableButtons(2, true);
+                }
+            }
+
+            // 衝突判定
+            checkHandCollision();
+        }
+
+        // ダメージ処理
+        function damagePlayer(player) {
+            if (player === 1) {
+                gameState.lives1--;
+                updateLifeDisplay(1);
+                if (gameState.lives1 <= 0) {
+                    endGame(2);
+                }
+            } else {
+                gameState.lives2--;
+                updateLifeDisplay(2);
+                if (gameState.lives2 <= 0) {
+                    endGame(1);
+                }
+            }
+        }
+
+        // ライフ表示更新
+        function updateLifeDisplay(player) {
+            const lives = player === 1 ? gameState.lives1 : gameState.lives2;
+            for (let i = 1; i <= CONFIG.initialLives; i++) {
+                const heart = document.getElementById(`life${player}-${i}`);
+                if (i > lives) {
+                    heart.classList.add('lost');
+                } else {
+                    heart.classList.remove('lost');
+                }
+            }
+        }
+
+        // ゲーム終了
+        function endGame(winner) {
+            gameState.running = false;
+            const gameOver = document.getElementById('gameOver');
+            const winnerText = document.getElementById('winnerText');
+
+            if (winner === 1) {
+                winnerText.textContent = 'Player 1 WIN! 🏆';
+                winnerText.style.color = '#ff6600';
+            } else {
+                winnerText.textContent = 'Player 2 WIN! 🏆';
+                winnerText.style.color = '#00ffff';
+            }
+
+            gameOver.classList.add('show');
+        }
+
+        // ゲーム再スタート
+        function restartGame() {
+            gameState = {
+                running: false,
+                readyPhase: true,
+                player1Ready: false,
+                player2Ready: false,
+                lives1: CONFIG.initialLives,
+                lives2: CONFIG.initialLives,
+            };
+            hands.player1 = null;
+            hands.player2 = null;
+            particles.length = 0;
+
+            updateLifeDisplay(1);
+            updateLifeDisplay(2);
+            enableButtons(1, false);
+            enableButtons(2, false);
+
+            document.getElementById('gameOver').classList.remove('show');
+            document.getElementById('readyScreen').classList.remove('hide');
+            document.getElementById('readyScreen').querySelector('.ready-message').textContent = 'READY?';
+            document.getElementById('readyP1').classList.remove('ready');
+            document.getElementById('readyP2').classList.remove('ready');
+        }
+
+        // 衝突エフェクト
+        function createCollisionEffect(x, y, emoji) {
+            for (let i = 0; i < 20; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10,
+                    life: 1,
+                    emoji,
+                    rotation: Math.random() * Math.PI * 2,
+                    rotationSpeed: (Math.random() - 0.5) * 0.3
+                });
+            }
+        }
+
+        // ゴールエフェクト
+        function createGoalEffect(x, y) {
+            for (let i = 0; i < 30; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    life: 1,
+                    color: y < canvas.height / 2 ? '#00ffff' : '#ff6600',
+                    size: Math.random() * 5 + 3
+                });
+            }
+        }
+
+        // パーティクル更新
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.02;
+
+                if (p.life > 0) {
+                    if (p.emoji) {
+                        // 絵文字パーティクル
+                        ctx.save();
+                        ctx.globalAlpha = p.life;
+                        ctx.translate(p.x, p.y);
+                        p.rotation += p.rotationSpeed;
+                        ctx.rotate(p.rotation);
+                        ctx.font = '24px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(p.emoji, 0, 0);
+                        ctx.restore();
+                    } else if (p.color) {
+                        // 色付きパーティクル
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                        ctx.fillStyle = p.color.replace(')', `, ${p.life})`).replace('rgb', 'rgba');
+                        ctx.fill();
+                    }
+                } else {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        // 中央線描画
+        function drawCenterLine() {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // 手を描画
+        function drawHand(hand) {
+            if (!hand) return;
+
+            // 光るエフェクト
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+
+            ctx.font = `${CONFIG.handSize * 2}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(hand.emoji, hand.x, hand.y);
+
+            ctx.shadowBlur = 0;
+        }
+
+        // ゲームループ
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawCenterLine();
+            updateHands();
+            drawHand(hands.player1);
+            drawHand(hands.player2);
+            updateParticles();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 初期化
+        enableButtons(1, false);
+        enableButtons(2, false);
+        gameLoop();
+    </script>
+</body>
+
+</html>
