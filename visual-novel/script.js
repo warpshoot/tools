@@ -1,18 +1,18 @@
 // 台詞データ
 const dialogues = [
-    { speaker: 'sakana', text: 'ここ少し行った先が現場' },
-    { speaker: 'death', text: 'うん' },
-    { speaker: 'sakana', text: '今度はグロくないといいな' },
-    { speaker: 'death', text: 'うん' },
+    { speaker: 'sakana', text: 'このまま少し行けば現場だ' },
+    { speaker: 'desu', text: 'うん' },
+    { speaker: 'sakana', text: '今度はグロいやつじゃないといいな' },
+    { speaker: 'desu', text: 'うん' },
     { speaker: 'sakana', text: '…' },
-    { speaker: 'death', text: '…' },
-    { speaker: 'sakana', text: '…ところで、それ、下なにか履いてる？' },
-    { speaker: 'death', text: '…いや' },
+    { speaker: 'desu', text: '…' },
+    { speaker: 'sakana', text: '…ところで\nそれ、下なにか履いてる？' },
+    { speaker: 'desu', text: '…いや' },
     { speaker: 'sakana', text: 'そうか…' },
-    { speaker: 'death', text: 'なんで？' },
-    { speaker: 'sakana', text: 'いや… 風邪ひくなよ' },
-    { speaker: 'death', text: '大丈夫　ありがと' },
-    { speaker: 'sakana', text: 'ん… あ、ここだ' }
+    { speaker: 'desu', text: 'なんで？' },
+    { speaker: 'sakana', text: 'いや…\n風邪ひくなよ' },
+    { speaker: 'desu', text: '大丈夫\nありがと' },
+    { speaker: 'sakana', text: 'ん…\nあ、ここだ' }
 ];
 
 // DOM要素
@@ -34,13 +34,13 @@ let previousSpeaker = null;
 // 名前の表示名
 const speakerNames = {
     sakana: 'サカナ',
-    death: 'デス'
+    desu: 'デス'
 };
 
 // 顔アイコンのパス
 const faceIcons = {
     sakana: 'images/sakana.jpg',
-    death: 'images/desu.jpg'
+    desu: 'images/desu.jpg'
 };
 
 // テキスト表示音を再生
@@ -169,8 +169,8 @@ function typeText(text, speaker) {
                 tempDiv.textContent = currentChar;
                 textContent.innerHTML += tempDiv.innerHTML;
 
-                // 2文字に1回音を鳴らす（うるさくならないように）
-                if (charIndex % 2 === 0) {
+                // 1文字に1回音を鳴らす
+                if (charIndex % 1 === 0) {
                     playTextSound(speaker);
                 }
 
