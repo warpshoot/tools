@@ -100,6 +100,7 @@ body {
     font-weight: bold;
     margin-bottom: 10px;
     min-height: 24px;
+    color: #fff; /* デフォルトは白 */
 }
 
 .name-display.sakana {
@@ -107,7 +108,7 @@ body {
 }
 
 .name-display.death {
-    color: #aaa;
+    color: #ccc; /* より明るいグレーに変更 */
 }
 
 /* テキスト内容 */
