@@ -1,17 +1,17 @@
 // 台詞データ
 const dialogues = [
     { speaker: 'sakana', text: 'そうそう/nこの先が次の現場だ' },
-    { speaker: 'death', text: 'うん' },
+    { speaker: 'desu', text: 'うん' },
     { speaker: 'sakana', text: '今度はグロいやつじゃないといいな' },
-    { speaker: 'death', text: 'うん' },
+    { speaker: 'desu', text: 'うん' },
     { speaker: 'sakana', text: '…' },
-    { speaker: 'death', text: '…' },
+    { speaker: 'desu', text: '…' },
     { speaker: 'sakana', text: '…ところで/nそれ、下なにか履いてる？' },
-    { speaker: 'death', text: '…いや' },
+    { speaker: 'desu', text: '…いや' },
     { speaker: 'sakana', text: 'そうか…' },
-    { speaker: 'death', text: 'なんで？' },
+    { speaker: 'desu', text: 'なんで？' },
     { speaker: 'sakana', text: 'いや…/n風邪ひくなよ' },
-    { speaker: 'death', text: '大丈夫/nありがと' },
+    { speaker: 'desu', text: '大丈夫/nありがと' },
     { speaker: 'sakana', text: 'ん…/nあ、ここだ' }
 ];
 
@@ -34,13 +34,13 @@ let previousSpeaker = null;
 // 名前の表示名
 const speakerNames = {
     sakana: 'サカナ',
-    death: 'デス'
+    desu: 'デス'
 };
 
 // 顔アイコンのパス
 const faceIcons = {
     sakana: 'images/sakana.jpg',
-    death: 'images/desu.jpg'
+    desu: 'images/desu.jpg'
 };
 
 // 初期化
