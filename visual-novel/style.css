@@ -43,7 +43,7 @@ body {
 
 /* フェード用オーバーレイ */
 .fade-overlay {
-    position: fixed;
+    position: absolute;
     top: 0;
     left: 0;
     width: 100%;
@@ -65,7 +65,7 @@ body {
 
 /* テキストウィンドウ */
 .text-window {
-    position: fixed;
+    position: absolute;
     bottom: 0;
     left: 0;
     width: 100%;
