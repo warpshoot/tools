@@ -43,6 +43,31 @@ const faceIcons = {
     death: 'images/desu.jpg'
 };
 
+// テキスト表示音を再生
+function playTextSound(speaker) {
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        // キャラクターごとに周波数を変える
+        // サカナ：低めの音（600Hz）、デス：高めの音（1000Hz）
+        const frequency = speaker === 'sakana' ? 600 : 1000;
+        oscillator.frequency.value = frequency;
+
+        gainNode.gain.value = 0.1; // 音量
+
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.03); // 0.03秒
+    } catch (e) {
+        // Audio APIが使えない場合は無視
+        console.warn('Web Audio API not supported');
+    }
+}
+
 // 初期化
 function init() {
     // クリックイベント
@@ -114,12 +139,12 @@ function showDialogue(index) {
         previousSpeaker = dialogue.speaker;
 
         // テキストを一文字ずつ表示
-        typeText(dialogue.text);
+        typeText(dialogue.text, dialogue.speaker);
     }, delay);
 }
 
 // テキストを一文字ずつ表示
-function typeText(text) {
+function typeText(text, speaker) {
     isTyping = true;
     let charIndex = 0;
 
@@ -143,6 +168,12 @@ function typeText(text) {
                 const tempDiv = document.createElement('div');
                 tempDiv.textContent = currentChar;
                 textContent.innerHTML += tempDiv.innerHTML;
+
+                // 2文字に1回音を鳴らす（うるさくならないように）
+                if (charIndex % 2 === 0) {
+                    playTextSound(speaker);
+                }
+
                 charIndex++;
                 typingTimeout = setTimeout(typeNextChar, typingSpeed);
             }
