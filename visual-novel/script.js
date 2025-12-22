@@ -199,6 +199,11 @@ function endStory() {
         previousSpeaker = null;
         gameStarted = false;
 
+        // テキストと表示をクリア
+        textContent.innerHTML = '';
+        nameDisplay.textContent = '';
+        continueIcon.classList.remove('show');
+
         // タイトル画面を再表示
         titleScreen.classList.remove('hidden');
 
