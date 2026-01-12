@@ -258,8 +258,8 @@
 <body class="dark">
     <div id="timer-container">
         <svg id="timer-svg">
-            <circle id="timer-circle-bg" fill="none" stroke-width="8" opacity="0.2"></circle>
-            <circle id="timer-circle" fill="none" stroke-width="8" stroke-linecap="round"></circle>
+            <circle id="timer-circle-bg" fill="none" stroke-width="8"></circle>
+            <circle id="timer-circle" fill="none" stroke-width="10" stroke-linecap="round"></circle>
         </svg>
         <div id="timer-display">30</div>
     </div>
@@ -392,8 +392,8 @@
             const radius = parseFloat(timerCircle.getAttribute('r'));
             const circumference = 2 * Math.PI * radius;
             const progress = timeLeft / timerDuration;
-            // Start with full circle (offset=0), shrink clockwise by using negative offset
-            const offset = -circumference * (1 - progress);
+            // Start hidden (offset=circumference), grow clockwise as time decreases
+            const offset = circumference * progress;
 
             timerCircle.style.strokeDashoffset = offset;
             timerDisplay.textContent = timeLeft;
