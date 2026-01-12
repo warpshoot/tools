@@ -362,16 +362,29 @@
         // Update circle color based on theme and inverted state
         function updateCircleColor() {
             const isInverted = body.classList.contains('inverted');
-            let currentColor;
+            let bgColor, progressColor;
 
             if (currentTheme === 'dark') {
-                currentColor = isInverted ? '#000' : '#fff';
+                if (isInverted) {
+                    bgColor = '#000';
+                    progressColor = '#fff';
+                } else {
+                    bgColor = '#fff';
+                    progressColor = '#000';
+                }
             } else {
-                currentColor = isInverted ? '#fff' : '#000';
+                if (isInverted) {
+                    bgColor = '#fff';
+                    progressColor = '#000';
+                } else {
+                    bgColor = '#000';
+                    progressColor = '#fff';
+                }
             }
 
-            timerCircleBg.setAttribute('stroke', currentColor);
-            timerCircle.setAttribute('stroke', currentColor);
+            timerCircleBg.setAttribute('stroke', bgColor);
+            timerCircleBg.setAttribute('opacity', '1');
+            timerCircle.setAttribute('stroke', progressColor);
         }
 
         // Update circle progress
