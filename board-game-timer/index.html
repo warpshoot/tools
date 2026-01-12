@@ -39,6 +39,19 @@
             color: #000;
         }
 
+        body.flash {
+            animation: flashInvert 0.15s ease-out;
+        }
+
+        @keyframes flashInvert {
+            0%, 100% {
+                filter: invert(0);
+            }
+            50% {
+                filter: invert(1);
+            }
+        }
+
         #timer-container {
             position: relative;
             display: flex;
@@ -326,7 +339,7 @@
             const radius = parseFloat(timerCircle.getAttribute('r'));
             const circumference = 2 * Math.PI * radius;
             const progress = timeLeft / timerDuration;
-            const offset = circumference * (1 - progress);
+            const offset = circumference * progress;
 
             timerCircle.style.strokeDashoffset = offset;
             timerDisplay.textContent = timeLeft;
@@ -430,13 +443,22 @@
 
         // Event listeners
         timerContainer.addEventListener('click', () => {
-            if (!isPaused && !settingsOverlay.classList.contains('active')) {
+            // Initialize AudioContext on first user interaction
+            initAudioContext();
+
+            // Allow tap restart if not paused, or if timer reached 0
+            if ((!isPaused || timeLeft === 0) && !settingsOverlay.classList.contains('active')) {
+                // Flash animation
+                body.classList.add('flash');
+                setTimeout(() => body.classList.remove('flash'), 150);
+
                 restartTimer();
             }
         });
 
         pauseBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            initAudioContext();
             if (isPaused) {
                 resumeTimer();
             } else {
@@ -446,6 +468,7 @@
 
         resetBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            initAudioContext();
             resetTimer();
         });
 
