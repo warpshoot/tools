@@ -542,6 +542,9 @@
             const width = canvas.width;
             const height = canvas.height;
 
+            // Disable image smoothing for crisp preview
+            ctx.imageSmoothingEnabled = false;
+
             // Fill white background
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, width, height);
@@ -700,6 +703,7 @@
             tempCanvas.width = newWidth;
             tempCanvas.height = newHeight;
             const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.imageSmoothingEnabled = false;
 
             // Draw resized image
             tempCtx.drawImage(sourceImage, 0, 0, newWidth, newHeight);
@@ -759,11 +763,15 @@
             outputCanvas.width = width;
             outputCanvas.height = height;
 
+            // Disable image smoothing for crisp binary output
+            ctx.imageSmoothingEnabled = false;
+
             // Draw processed image to temporary canvas for processing
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = width;
             tempCanvas.height = height;
             const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.imageSmoothingEnabled = false;
             tempCtx.drawImage(processedImage, 0, 0);
 
             // Get image data
@@ -824,6 +832,28 @@
                 const edgeData = detectEdges(grayData, width, height, parseInt(edgeThreshold.value));
                 drawEdges(ctx, edgeData, width, height);
             }
+
+            // Binarize output (convert to pure black and white)
+            binarizeOutput(ctx, width, height);
+        }
+
+        // Binarize output to pure black and white
+        function binarizeOutput(ctx, width, height) {
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+
+            // Convert to pure black or white (threshold at 128)
+            for (let i = 0; i < data.length; i += 4) {
+                const gray = data[i]; // R channel (all RGB are same for grayscale)
+                const binaryValue = gray < 128 ? 0 : 255;
+
+                data[i] = binaryValue;     // R
+                data[i + 1] = binaryValue; // G
+                data[i + 2] = binaryValue; // B
+                // Alpha stays at 255
+            }
+
+            ctx.putImageData(imageData, 0, 0);
         }
 
         // Sobel edge detection
