@@ -329,10 +329,11 @@
         <div class="info-box">
             <h3>処理内容</h3>
             <ul>
-                <li>画像を4階調に分割: 白 / 粗いトーン / 細かいトーン / 黒ベタ</li>
-                <li>トーン領域を円形ドットパターンで置き換え（45度回転）</li>
-                <li>粗いトーン: 大きめの間隔、細かいトーン: 小さめの間隔</li>
-                <li>レベル補正で明暗を調整可能</li>
+                <li>画像を4つの明度レベルに分割</li>
+                <li>各レベルに18種類のトーンパターンから自由に割り当て</li>
+                <li>円形ドットパターン（45度回転）でトーン表現</li>
+                <li>輪郭線抽出（Sobelフィルタ）でエッジ強調可能</li>
+                <li>解像度固定・レベル補正で調整可能</li>
             </ul>
         </div>
 
@@ -391,6 +392,24 @@
             </div>
 
             <div class="control-section">
+                <h3>輪郭線抽出</h3>
+                <div class="control-group">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" id="edgeToggle" style="width: 20px; height: 20px; cursor: pointer;">
+                        <span style="font-weight: 600;">輪郭線を表示</span>
+                    </label>
+                </div>
+
+                <div class="control-group" id="edgeThresholdControl" style="display: none;">
+                    <label class="control-label">感度（閾値）</label>
+                    <div class="slider-container">
+                        <input type="range" id="edgeThreshold" class="slider" min="10" max="200" value="50">
+                        <span id="edgeThresholdValue" class="slider-value">50</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-section">
                 <h3>トーン割り当て</h3>
                 <p style="font-size: 13px; color: #666; margin-bottom: 15px;">各明度レベルに適用するトーンパターンを選択</p>
 
@@ -430,6 +449,10 @@
         const whitePoint = document.getElementById('whitePoint');
         const blackPointValue = document.getElementById('blackPointValue');
         const whitePointValue = document.getElementById('whitePointValue');
+        const edgeToggle = document.getElementById('edgeToggle');
+        const edgeThreshold = document.getElementById('edgeThreshold');
+        const edgeThresholdValue = document.getElementById('edgeThresholdValue');
+        const edgeThresholdControl = document.getElementById('edgeThresholdControl');
         const downloadBtn = document.getElementById('downloadBtn');
         const outputCanvas = document.getElementById('outputCanvas');
         const ctx = outputCanvas.getContext('2d');
@@ -706,6 +729,18 @@
 
         setupSlider(blackPoint, blackPointValue);
         setupSlider(whitePoint, whitePointValue);
+        setupSlider(edgeThreshold, edgeThresholdValue);
+
+        // Edge toggle handler
+        edgeToggle.addEventListener('change', () => {
+            edgeThresholdControl.style.display = edgeToggle.checked ? 'block' : 'none';
+            if (processedImage) {
+                clearTimeout(processingTimeout);
+                processingTimeout = setTimeout(() => {
+                    processMangaTone();
+                }, 150);
+            }
+        });
 
         // Download button handler
         downloadBtn.addEventListener('click', () => {
@@ -783,6 +818,63 @@
             drawLevelPattern(ctx, width, height, toneLevelMap, 3, level3Preset);
             drawLevelPattern(ctx, width, height, toneLevelMap, 2, level2Preset);
             drawLevelPattern(ctx, width, height, toneLevelMap, 1, level1Preset);
+
+            // Draw edge lines if enabled
+            if (edgeToggle.checked) {
+                const edgeData = detectEdges(grayData, width, height, parseInt(edgeThreshold.value));
+                drawEdges(ctx, edgeData, width, height);
+            }
+        }
+
+        // Sobel edge detection
+        function detectEdges(grayData, width, height, threshold) {
+            const edgeData = new Uint8Array(width * height);
+
+            // Sobel kernels
+            const sobelX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
+            const sobelY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
+
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    let gx = 0;
+                    let gy = 0;
+
+                    // Apply Sobel kernel
+                    for (let ky = -1; ky <= 1; ky++) {
+                        for (let kx = -1; kx <= 1; kx++) {
+                            const idx = (y + ky) * width + (x + kx);
+                            const kernelIdx = (ky + 1) * 3 + (kx + 1);
+                            const pixel = grayData[idx];
+
+                            gx += pixel * sobelX[kernelIdx];
+                            gy += pixel * sobelY[kernelIdx];
+                        }
+                    }
+
+                    // Calculate gradient magnitude
+                    const magnitude = Math.sqrt(gx * gx + gy * gy);
+
+                    // Apply threshold
+                    const idx = y * width + x;
+                    edgeData[idx] = magnitude > threshold ? 255 : 0;
+                }
+            }
+
+            return edgeData;
+        }
+
+        // Draw edges on canvas
+        function drawEdges(ctx, edgeData, width, height) {
+            ctx.fillStyle = '#000000';
+
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const idx = y * width + x;
+                    if (edgeData[idx] === 255) {
+                        ctx.fillRect(x, y, 1, 1);
+                    }
+                }
+            }
         }
 
         // Draw pattern for a specific level
