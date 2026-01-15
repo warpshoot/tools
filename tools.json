@@ -41,6 +41,13 @@
       "title": "Board Game Timer",
       "description": "Turn-based countdown timer for board games with alert sounds",
       "device": "mobile"
+    },
+    {
+      "path": "./manga-tone-processor/",
+      "icon": "📰",
+      "title": "Manga Tone Processor",
+      "description": "Convert images to manga-style halftone backgrounds with adjustable levels",
+      "device": "both"
     }
   ]
 }
