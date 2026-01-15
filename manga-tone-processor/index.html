@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>漫画背景風トーン処理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .upload-area {
+            border: 3px dashed #ccc;
+            border-radius: 8px;
+            padding: 60px 20px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: #fafafa;
+        }
+
+        .upload-area.dragover {
+            border-color: #4CAF50;
+            background: #f0f8f0;
+        }
+
+        .upload-area.has-image {
+            border-style: solid;
+            border-color: #4CAF50;
+            padding: 20px;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .upload-hint {
+            color: #999;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .preview-container {
+            display: none;
+            margin-bottom: 20px;
+        }
+
+        .preview-container.active {
+            display: block;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .controls {
+            display: none;
+            margin-bottom: 30px;
+        }
+
+        .controls.active {
+            display: block;
+        }
+
+        .control-group {
+            margin-bottom: 25px;
+        }
+
+        .control-label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .slider {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+        }
+
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+            border: none;
+        }
+
+        .slider-value {
+            min-width: 50px;
+            text-align: right;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #45a049;
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #2196F3;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #0b7dda;
+        }
+
+        .btn-secondary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .output-canvas {
+            display: none;
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+
+        .output-canvas.active {
+            display: block;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .info-box h3 {
+            margin-bottom: 8px;
+            color: #1976D2;
+            font-size: 14px;
+        }
+
+        .info-box ul {
+            margin-left: 20px;
+            color: #555;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>漫画背景風トーン処理</h1>
+        <p class="subtitle">画像をアミ点トーンで漫画の背景風に変換</p>
+
+        <div class="info-box">
+            <h3>処理内容</h3>
+            <ul>
+                <li>画像を4階調に分割: 白(0%) / 薄(20%) / 中(50%) / ベタ(100%)</li>
+                <li>白/薄/中はアミ点トーン(60線・45度)で表現</li>
+                <li>ベタは塗りつぶし</li>
+                <li>レベル補正で明暗を調整可能</li>
+            </ul>
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📷</div>
+            <div class="upload-text">画像をドラッグ&ドロップ</div>
+            <div class="upload-hint">またはクリックしてファイルを選択</div>
+            <input type="file" id="fileInput" accept="image/*">
+        </div>
+
+        <div class="preview-container" id="previewContainer">
+            <h3 style="margin-bottom: 10px; color: #333;">元画像</h3>
+            <img id="previewImage" class="preview-image" alt="Preview">
+        </div>
+
+        <div class="controls" id="controls">
+            <div class="control-group">
+                <label class="control-label">黒点 (入力の最暗部)</label>
+                <div class="slider-container">
+                    <input type="range" id="blackPoint" class="slider" min="0" max="255" value="0">
+                    <span id="blackPointValue" class="slider-value">0</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">白点 (入力の最明部)</label>
+                <div class="slider-container">
+                    <input type="range" id="whitePoint" class="slider" min="0" max="255" value="255">
+                    <span id="whitePointValue" class="slider-value">255</span>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-primary" id="processBtn">トーン処理を実行</button>
+                <button class="btn btn-secondary" id="downloadBtn" disabled>PNG出力</button>
+            </div>
+        </div>
+
+        <canvas id="outputCanvas" class="output-canvas"></canvas>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const previewContainer = document.getElementById('previewContainer');
+        const previewImage = document.getElementById('previewImage');
+        const controls = document.getElementById('controls');
+        const blackPoint = document.getElementById('blackPoint');
+        const whitePoint = document.getElementById('whitePoint');
+        const blackPointValue = document.getElementById('blackPointValue');
+        const whitePointValue = document.getElementById('whitePointValue');
+        const processBtn = document.getElementById('processBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const outputCanvas = document.getElementById('outputCanvas');
+        const ctx = outputCanvas.getContext('2d');
+
+        let originalImage = null;
+
+        // Upload area click handler
+        uploadArea.addEventListener('click', () => {
+            if (!uploadArea.classList.contains('has-image')) {
+                fileInput.click();
+            }
+        });
+
+        // File input change handler
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                loadImage(e.target.files[0]);
+            }
+        });
+
+        // Drag and drop handlers
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                loadImage(e.dataTransfer.files[0]);
+            }
+        });
+
+        // Load image
+        function loadImage(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    originalImage = img;
+                    previewImage.src = e.target.result;
+                    uploadArea.classList.add('has-image');
+                    uploadArea.innerHTML = '<div class="upload-text" style="color: #4CAF50;">✓ 画像を読み込みました</div>';
+                    previewContainer.classList.add('active');
+                    controls.classList.add('active');
+                    outputCanvas.classList.remove('active');
+                    downloadBtn.disabled = true;
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Slider value display
+        blackPoint.addEventListener('input', (e) => {
+            blackPointValue.textContent = e.target.value;
+        });
+
+        whitePoint.addEventListener('input', (e) => {
+            whitePointValue.textContent = e.target.value;
+        });
+
+        // Process button handler
+        processBtn.addEventListener('click', () => {
+            if (!originalImage) return;
+
+            processBtn.disabled = true;
+            processBtn.textContent = '処理中...';
+
+            setTimeout(() => {
+                processMangaTone();
+                processBtn.disabled = false;
+                processBtn.textContent = 'トーン処理を実行';
+                downloadBtn.disabled = false;
+                outputCanvas.classList.add('active');
+            }, 100);
+        });
+
+        // Download button handler
+        downloadBtn.addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'manga-tone-output.png';
+            link.href = outputCanvas.toDataURL();
+            link.click();
+        });
+
+        // Bayer matrix 8x8 for dithering
+        const bayerMatrix8x8 = [
+            [0, 32, 8, 40, 2, 34, 10, 42],
+            [48, 16, 56, 24, 50, 18, 58, 26],
+            [12, 44, 4, 36, 14, 46, 6, 38],
+            [60, 28, 52, 20, 62, 30, 54, 22],
+            [3, 35, 11, 43, 1, 33, 9, 41],
+            [51, 19, 59, 27, 49, 17, 57, 25],
+            [15, 47, 7, 39, 13, 45, 5, 37],
+            [63, 31, 55, 23, 61, 29, 53, 21]
+        ];
+
+        // Normalize Bayer matrix to 0-1 range
+        const normalizedBayer = bayerMatrix8x8.map(row =>
+            row.map(val => (val + 0.5) / 64)
+        );
+
+        // Main processing function
+        function processMangaTone() {
+            const width = originalImage.width;
+            const height = originalImage.height;
+
+            // Set canvas size
+            outputCanvas.width = width;
+            outputCanvas.height = height;
+
+            // Draw original image to temporary canvas for processing
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = width;
+            tempCanvas.height = height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(originalImage, 0, 0);
+
+            // Get image data
+            const imageData = tempCtx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+
+            // Convert to grayscale and apply level correction
+            const grayData = new Uint8Array(width * height);
+            const blackPt = parseInt(blackPoint.value);
+            const whitePt = parseInt(whitePoint.value);
+
+            for (let i = 0; i < data.length; i += 4) {
+                // Convert to grayscale
+                const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+
+                // Apply level correction
+                let adjusted = (gray - blackPt) * 255 / (whitePt - blackPt);
+                adjusted = Math.max(0, Math.min(255, adjusted));
+
+                grayData[i / 4] = adjusted;
+            }
+
+            // Create output image data
+            const outputData = ctx.createImageData(width, height);
+            const output = outputData.data;
+
+            // Process each pixel
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const idx = y * width + x;
+                    const gray = grayData[idx];
+                    const brightness = gray / 255; // 0 (dark) to 1 (bright)
+
+                    // Determine tone level
+                    let toneLevel;
+                    if (brightness >= 0.875) { // Very bright -> White (0%)
+                        toneLevel = 0;
+                    } else if (brightness >= 0.625) { // Bright -> Light (20%)
+                        toneLevel = 1;
+                    } else if (brightness >= 0.375) { // Medium -> Medium (50%)
+                        toneLevel = 2;
+                    } else { // Dark -> Solid black (100%)
+                        toneLevel = 3;
+                    }
+
+                    let pixelValue = 255; // Default white
+
+                    // Apply halftone pattern based on tone level
+                    if (toneLevel === 3) {
+                        // Solid black (Beta)
+                        pixelValue = 0;
+                    } else if (toneLevel > 0) {
+                        // Apply halftone pattern with rotation
+                        const halftoneValue = getHalftoneValue(x, y, toneLevel);
+                        pixelValue = halftoneValue;
+                    }
+
+                    // Set pixel in output
+                    const outIdx = idx * 4;
+                    output[outIdx] = pixelValue;
+                    output[outIdx + 1] = pixelValue;
+                    output[outIdx + 2] = pixelValue;
+                    output[outIdx + 3] = 255; // Full opacity
+                }
+            }
+
+            ctx.putImageData(outputData, 0, 0);
+        }
+
+        // Get halftone value with 45-degree rotation
+        function getHalftoneValue(x, y, toneLevel) {
+            // 60 line screen ≈ frequency of 5 pixels (adjusted for visibility)
+            const frequency = 5;
+
+            // 45-degree rotation
+            const cos45 = 0.7071067811865476;
+            const sin45 = 0.7071067811865476;
+            const rotX = x * cos45 - y * sin45;
+            const rotY = x * sin45 + y * cos45;
+
+            // Calculate grid position
+            const gridX = Math.floor(rotX / frequency) % 8;
+            const gridY = Math.floor(rotY / frequency) % 8;
+
+            // Get position within cell
+            const cellX = Math.floor((rotX % frequency) / frequency * 8);
+            const cellY = Math.floor((rotY % frequency) / frequency * 8);
+
+            // Ensure indices are within bounds
+            const bayerX = (cellX + 8) % 8;
+            const bayerY = (cellY + 8) % 8;
+
+            // Get threshold from Bayer matrix
+            const threshold = normalizedBayer[bayerY][bayerX];
+
+            // Determine dot density based on tone level
+            let density;
+            if (toneLevel === 1) { // Light 20%
+                density = 0.2;
+            } else if (toneLevel === 2) { // Medium 50%
+                density = 0.5;
+            } else {
+                density = 0;
+            }
+
+            // Apply ordered dithering
+            return threshold < density ? 0 : 255;
+        }
+    </script>
+</body>
+
+</html>
