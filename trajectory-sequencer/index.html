@@ -704,8 +704,8 @@
                 const b = data[i + 2];
                 const a = data[i + 3];
 
-                // If there's a drawn pixel (not transparent)
-                if (a > 128) {
+                // Only detect fully opaque pixels (drawn lines, not grid or artifacts)
+                if (a > 200) {
                     // Determine color and timbre
                     const colorInfo = getColorFromRGB(r, g, b);
                     if (colorInfo) {
@@ -725,7 +725,11 @@
         }
 
         function getColorFromRGB(r, g, b) {
-            // Match RGB to our color palette
+            // Exclude gray colors (grid lines and background)
+            const maxDiff = Math.max(Math.abs(r - g), Math.abs(g - b), Math.abs(r - b));
+            if (maxDiff < 50) return null; // Too close to gray
+
+            // Match RGB to our color palette (only vibrant colors)
             if (r > 200 && g < 150 && b < 150) return { color: 'red', timbre: 'square' };
             if (r < 150 && g > 150 && b > 200) return { color: 'blue', timbre: 'triangle' };
             if (r < 150 && g > 200 && b < 200) return { color: 'green', timbre: 'sawtooth' };
