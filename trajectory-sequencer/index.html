@@ -349,9 +349,19 @@
             if (!state.audioContext) {
                 state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             }
-            // Resume context if suspended (required by modern browsers)
+            // Resume context if suspended (required by modern browsers, especially Chrome)
             if (state.audioContext.state === 'suspended') {
-                await state.audioContext.resume();
+                try {
+                    await state.audioContext.resume();
+                    console.log('AudioContext resumed, state:', state.audioContext.state);
+                } catch (error) {
+                    console.error('Failed to resume AudioContext:', error);
+                }
+            }
+
+            // Wait a bit to ensure context is fully running
+            if (state.audioContext.state !== 'running') {
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
         }
 
@@ -360,9 +370,20 @@
             return SCALE[Math.max(0, Math.min(SCALE.length - 1, index))];
         }
 
-        function playNote(frequency, timbre, duration = 0.25) {
+        async function playNote(frequency, timbre, duration = 0.25) {
             const ctx = state.audioContext;
             if (!ctx) return;
+
+            // Ensure audio context is running (important for Chrome)
+            if (ctx.state === 'suspended') {
+                await ctx.resume();
+            }
+
+            // Double-check the context is running
+            if (ctx.state !== 'running') {
+                console.warn('AudioContext not running:', ctx.state);
+                return;
+            }
 
             const now = ctx.currentTime;
 
@@ -599,6 +620,17 @@
 
             // Initialize audio context on user interaction
             await initAudio();
+
+            // Play a silent note to fully activate AudioContext (Chrome fix)
+            if (state.audioContext && state.audioContext.state === 'running') {
+                const dummyOsc = state.audioContext.createOscillator();
+                const dummyGain = state.audioContext.createGain();
+                dummyGain.gain.value = 0; // Silent
+                dummyOsc.connect(dummyGain);
+                dummyGain.connect(state.audioContext.destination);
+                dummyOsc.start();
+                dummyOsc.stop(state.audioContext.currentTime + 0.001);
+            }
 
             // Save canvas state before playback
             state.canvasSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
