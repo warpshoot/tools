@@ -304,7 +304,7 @@
         <div class="instructions">
             💡 使い方: 色を選んで線を描き、再生ボタンを押すと音が鳴ります。<br>
             縦の位置で音程が変わり、上が高音、下が低音です。色によって音色が変わります。<br>
-            🎼 ペンタトニックスケールで美しいメロディーが自然に作れます！
+            🎼 ペンタトニックスケール + リズムの自動整列で、適当に描いても音楽になります！
         </div>
     </div>
 
@@ -323,8 +323,13 @@
             lastPlaybackX: -10,
             canvasSnapshot: null,
             activeFlashes: [],
-            lastNotePlayedAt: -10
+            playedGrids: new Set() // Track which grid positions have played
         };
+
+        // Musical quantization grid (16th notes at 120 BPM)
+        // 5 seconds = 10 beats = 40 sixteenth notes
+        // 1200px / 40 = 30px per 16th note
+        const GRID_SIZE = 30;
 
         // Color to actual RGB values for drawing
         const COLOR_MAP = {
@@ -635,12 +640,12 @@
             // Save canvas state before playback
             state.canvasSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
             state.activeFlashes = [];
+            state.playedGrids.clear();
 
             state.isPlaying = true;
             state.playbackPosition = 0;
             state.lastTime = performance.now();
             state.lastPlaybackX = -10;
-            state.lastNotePlayedAt = -10;
 
             playbackLine.style.display = 'block';
 
@@ -687,8 +692,8 @@
             if (state.playbackPosition >= canvas.width) {
                 state.playbackPosition = 0;
                 state.lastPlaybackX = -10;
-                state.lastNotePlayedAt = -10;
                 state.activeFlashes = [];
+                state.playedGrids.clear();
             }
 
             // Restore original canvas and redraw flashes
@@ -727,6 +732,15 @@
         function checkAndPlayNotes(x) {
             // Only check new positions (skip if we've already checked this x)
             if (x <= state.lastPlaybackX || x >= canvas.width) return;
+
+            // Quantize to nearest grid position (16th note)
+            const gridPosition = Math.round(x / GRID_SIZE) * GRID_SIZE;
+
+            // Skip if we've already played this grid position
+            if (state.playedGrids.has(gridPosition)) {
+                state.lastPlaybackX = x;
+                return;
+            }
 
             // Get pixel data from the original snapshot (not the current canvas with flashes)
             if (!state.canvasSnapshot) return;
@@ -769,13 +783,14 @@
                 }
             }
 
-            // Play notes only if enough distance from last note (reduce density)
-            if (hasDrawing && detectedNotes.length > 0 && (x - state.lastNotePlayedAt >= 4)) {
+            // Play notes if we detected any drawing
+            if (hasDrawing && detectedNotes.length > 0) {
                 detectedNotes.forEach(note => {
                     playNote(note.frequency, note.timbre);
                     flashIntersection(x, note.y, note.color);
                 });
-                state.lastNotePlayedAt = x;
+                // Mark this grid position as played
+                state.playedGrids.add(gridPosition);
             }
 
             state.lastPlaybackX = x;
