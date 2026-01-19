@@ -429,8 +429,8 @@
                 <canvas id="mainCanvas" width="1200" height="400"></canvas>
                 <div class="playback-line" id="playbackLine"></div>
                 <div class="dj-overlay" id="djOverlay">
-                    <div><span class="param-label">Pitch:</span><span class="param-value" id="pitchValue">0半音</span></div>
-                    <div><span class="param-label">Filter:</span><span class="param-value" id="filterValue">20kHz</span></div>
+                    <div><span class="param-label">Filter:</span><span class="param-value" id="pitchValue">10kHz</span></div>
+                    <div><span class="param-label">Resonance:</span><span class="param-value" id="filterValue">1.0</span></div>
                 </div>
             </div>
         </div>
@@ -439,7 +439,7 @@
             💡 使い方: 色を選んで線を描き、再生ボタンを押すと音が鳴ります。<br>
             縦の位置で音程が変わり、上が高音、下が低音です。色によって音色が変わります。<br>
             🎼 音階を選んで雰囲気を変えられます。リズムは自動整列で、適当に描いても音楽になります！<br>
-            🎧 <strong>DJモード:</strong> 再生中にキャンバスをドラッグ！ <strong>上下=ピッチベンド</strong>、<strong>左右=フィルター</strong>で音を自在に操作！
+            🎧 <strong>DJモード:</strong> 再生中にキャンバスをドラッグ！ <strong>上下=フィルター</strong>、<strong>左右=レゾナンス</strong>でガサガサノイジーな音も自在に操作！
         </div>
     </div>
 
@@ -474,9 +474,9 @@
                 startY: 0,
                 currentX: 0,
                 currentY: 0,
-                pitchBend: 1.0,        // 0.5 ~ 2.0 (±1 octave)
                 filterEnabled: false,
-                filterCutoff: 20000    // 200 ~ 20000 Hz
+                filterCutoff: 10000,   // 200 ~ 20000 Hz
+                resonance: 1.0         // 0.1 ~ 30 (Q value)
             }
         };
 
@@ -577,16 +577,13 @@
 
             const now = ctx.currentTime;
 
-            // Apply DJ Mode pitch bend
-            const djFrequency = frequency * state.djMode.pitchBend;
-
             // Basic waveforms
             if (['square', 'triangle', 'sawtooth', 'sine'].includes(timbre)) {
                 const oscillator = ctx.createOscillator();
                 const gainNode = ctx.createGain();
 
                 oscillator.type = timbre;
-                oscillator.frequency.setValueAtTime(djFrequency, now);
+                oscillator.frequency.setValueAtTime(frequency, now);
 
                 // ADSR Envelope - softer and more musical
                 gainNode.gain.setValueAtTime(0, now);
@@ -600,7 +597,7 @@
                     const filter = ctx.createBiquadFilter();
                     filter.type = 'lowpass';
                     filter.frequency.setValueAtTime(state.djMode.filterCutoff, now);
-                    filter.Q.setValueAtTime(1, now);
+                    filter.Q.setValueAtTime(state.djMode.resonance, now);
 
                     oscillator.connect(filter);
                     filter.connect(gainNode);
@@ -623,7 +620,7 @@
                     const gain = ctx.createGain();
 
                     osc.type = 'sine';
-                    osc.frequency.setValueAtTime(djFrequency * harmonic, now);
+                    osc.frequency.setValueAtTime(frequency * harmonic, now);
 
                     // Piano-like envelope: quick attack, slower decay
                     gain.gain.setValueAtTime(0, now);
@@ -635,7 +632,7 @@
                         const filter = ctx.createBiquadFilter();
                         filter.type = 'lowpass';
                         filter.frequency.setValueAtTime(state.djMode.filterCutoff, now);
-                        filter.Q.setValueAtTime(1, now);
+                        filter.Q.setValueAtTime(state.djMode.resonance, now);
 
                         osc.connect(filter);
                         filter.connect(gain);
@@ -655,7 +652,7 @@
                 const gain = ctx.createGain();
 
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(djFrequency, now);
+                osc.frequency.setValueAtTime(frequency, now);
 
                 // Bell envelope: quick attack, long decay
                 gain.gain.setValueAtTime(0, now);
@@ -667,7 +664,7 @@
                     const filter = ctx.createBiquadFilter();
                     filter.type = 'lowpass';
                     filter.frequency.setValueAtTime(state.djMode.filterCutoff, now);
-                    filter.Q.setValueAtTime(1, now);
+                    filter.Q.setValueAtTime(state.djMode.resonance, now);
 
                     osc.connect(filter);
                     filter.connect(gain);
@@ -688,7 +685,7 @@
                 const gain = ctx.createGain();
 
                 osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(djFrequency, now);
+                osc.frequency.setValueAtTime(frequency, now);
 
                 filter.type = 'lowpass';
                 filter.frequency.setValueAtTime(800, now);
@@ -704,7 +701,7 @@
                 if (djFilter) {
                     djFilter.type = 'lowpass';
                     djFilter.frequency.setValueAtTime(state.djMode.filterCutoff, now);
-                    djFilter.Q.setValueAtTime(1, now);
+                    djFilter.Q.setValueAtTime(state.djMode.resonance, now);
 
                     filter.connect(djFilter);
                     djFilter.connect(gain);
@@ -722,7 +719,7 @@
                 const gain = ctx.createGain();
 
                 osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(djFrequency, now);
+                osc.frequency.setValueAtTime(frequency, now);
 
                 // Strings envelope: slow attack, sustained
                 gain.gain.setValueAtTime(0, now);
@@ -735,7 +732,7 @@
                     const filter = ctx.createBiquadFilter();
                     filter.type = 'lowpass';
                     filter.frequency.setValueAtTime(state.djMode.filterCutoff, now);
-                    filter.Q.setValueAtTime(1, now);
+                    filter.Q.setValueAtTime(state.djMode.resonance, now);
 
                     osc.connect(filter);
                     filter.connect(gain);
@@ -919,11 +916,13 @@
         let lastY = 0;
 
         function setupDrawing() {
-            // Mouse events
+            // Mouse events on canvas
             canvas.addEventListener('mousedown', startDrawing);
             canvas.addEventListener('mousemove', draw);
-            canvas.addEventListener('mouseup', stopDrawing);
-            canvas.addEventListener('mouseleave', stopDrawing);
+
+            // Document-level events to handle dragging outside canvas
+            document.addEventListener('mousemove', draw);
+            document.addEventListener('mouseup', stopDrawing);
 
             // Touch events
             canvas.addEventListener('touchstart', (e) => {
@@ -936,21 +935,22 @@
                 canvas.dispatchEvent(mouseEvent);
             });
 
-            canvas.addEventListener('touchmove', (e) => {
+            document.addEventListener('touchmove', (e) => {
+                if (!isDrawing && !state.djMode.active) return;
                 e.preventDefault();
                 const touch = e.touches[0];
                 const mouseEvent = new MouseEvent('mousemove', {
                     clientX: touch.clientX,
                     clientY: touch.clientY
                 });
-                canvas.dispatchEvent(mouseEvent);
-            });
+                draw(mouseEvent);
+            }, { passive: false });
 
-            canvas.addEventListener('touchend', (e) => {
+            document.addEventListener('touchend', (e) => {
+                if (!isDrawing && !state.djMode.active) return;
                 e.preventDefault();
-                const mouseEvent = new MouseEvent('mouseup', {});
-                canvas.dispatchEvent(mouseEvent);
-            });
+                stopDrawing();
+            }, { passive: false });
         }
 
         function getCoordinates(e) {
@@ -974,9 +974,9 @@
                 state.djMode.startY = pos.y;
                 state.djMode.currentX = pos.x;
                 state.djMode.currentY = pos.y;
-                state.djMode.pitchBend = 1.0;
                 state.djMode.filterEnabled = false;
-                state.djMode.filterCutoff = 20000;
+                state.djMode.filterCutoff = 10000;
+                state.djMode.resonance = 1.0;
 
                 // Show DJ overlay
                 document.getElementById('djOverlay').style.display = 'block';
@@ -1001,20 +1001,26 @@
                 const deltaY = state.djMode.startY - pos.y; // Inverted: up = positive
                 const deltaX = pos.x - state.djMode.startX; // Right = positive
 
-                // Pitch bend (Y-axis): ±200px = ±1 octave (0.5x ~ 2.0x)
-                const pitchSemitones = (deltaY / 200) * 12; // ±12 semitones
-                state.djMode.pitchBend = Math.pow(2, pitchSemitones / 12);
-                state.djMode.pitchBend = Math.max(0.5, Math.min(2.0, state.djMode.pitchBend));
-
-                // Filter (X-axis): ±600px = 200Hz ~ 20kHz
-                // Center = 10kHz, right = bright (20kHz), left = muffled (200Hz)
-                const filterNormalized = deltaX / 600; // -1 to 1
+                // Filter Cutoff (Y-axis): ±200px = 200Hz ~ 20kHz
+                // Up = bright (20kHz), Down = muffled (200Hz), Center = 10kHz
+                const filterNormalized = deltaY / 200; // -1 to 1
                 const logMin = Math.log(200);
                 const logMax = Math.log(20000);
                 const logCenter = (logMin + logMax) / 2;
                 const logFilter = logCenter + filterNormalized * (logMax - logMin) / 2;
                 state.djMode.filterCutoff = Math.exp(logFilter);
                 state.djMode.filterCutoff = Math.max(200, Math.min(20000, state.djMode.filterCutoff));
+
+                // Resonance (X-axis): ±600px = 0.1 ~ 30 (Q value)
+                // Left = clean (0.1), Right = resonant/noisy (30), Center = 1.0
+                const resonanceNormalized = deltaX / 600; // -1 to 1
+                const logResMin = Math.log(0.1);
+                const logResMax = Math.log(30);
+                const logResCenter = Math.log(1.0);
+                const logRes = logResCenter + resonanceNormalized * (logResMax - logResMin) / 2;
+                state.djMode.resonance = Math.exp(logRes);
+                state.djMode.resonance = Math.max(0.1, Math.min(30, state.djMode.resonance));
+
                 state.djMode.filterEnabled = true;
 
                 // Update visual feedback
@@ -1077,9 +1083,9 @@
             // Reset DJ Mode
             if (state.djMode.active) {
                 state.djMode.active = false;
-                state.djMode.pitchBend = 1.0;
                 state.djMode.filterEnabled = false;
-                state.djMode.filterCutoff = 20000;
+                state.djMode.filterCutoff = 10000;
+                state.djMode.resonance = 1.0;
 
                 // Hide DJ overlay
                 document.getElementById('djOverlay').style.display = 'none';
@@ -1094,9 +1100,6 @@
         // ==================== DJ Mode Visuals ====================
         function updateDJVisuals() {
             // Update text display
-            const pitchSemitones = Math.round(12 * Math.log2(state.djMode.pitchBend));
-            const pitchDisplay = pitchSemitones >= 0 ? `+${pitchSemitones}半音` : `${pitchSemitones}半音`;
-
             let filterDisplay;
             if (state.djMode.filterCutoff >= 1000) {
                 filterDisplay = `${(state.djMode.filterCutoff / 1000).toFixed(1)}kHz`;
@@ -1104,8 +1107,10 @@
                 filterDisplay = `${Math.round(state.djMode.filterCutoff)}Hz`;
             }
 
-            document.getElementById('pitchValue').textContent = pitchDisplay;
-            document.getElementById('filterValue').textContent = filterDisplay;
+            const resonanceDisplay = state.djMode.resonance.toFixed(1);
+
+            document.getElementById('pitchValue').textContent = filterDisplay;
+            document.getElementById('filterValue').textContent = resonanceDisplay;
         }
 
         function drawDJGuides() {
@@ -1117,13 +1122,13 @@
             ctx.lineWidth = 2;
             ctx.setLineDash([5, 5]);
 
-            // Vertical line (pitch indicator)
+            // Vertical line (filter cutoff indicator)
             ctx.beginPath();
             ctx.moveTo(state.djMode.startX, 0);
             ctx.lineTo(state.djMode.startX, canvas.height);
             ctx.stroke();
 
-            // Horizontal line (filter indicator)
+            // Horizontal line (resonance indicator)
             ctx.beginPath();
             ctx.moveTo(0, state.djMode.startY);
             ctx.lineTo(canvas.width, state.djMode.startY);
@@ -1148,13 +1153,13 @@
             ctx.strokeStyle = 'rgba(255, 255, 0, 0.6)';
             ctx.lineWidth = 2;
 
-            // Vertical delta (pitch)
+            // Vertical delta (filter cutoff)
             ctx.beginPath();
             ctx.moveTo(state.djMode.startX, state.djMode.startY);
             ctx.lineTo(state.djMode.startX, state.djMode.currentY);
             ctx.stroke();
 
-            // Horizontal delta (filter)
+            // Horizontal delta (resonance)
             ctx.beginPath();
             ctx.moveTo(state.djMode.startX, state.djMode.currentY);
             ctx.lineTo(state.djMode.currentX, state.djMode.currentY);
