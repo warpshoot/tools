@@ -241,6 +241,36 @@
             display: none;
         }
 
+        .dj-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            pointer-events: none;
+            display: none;
+            z-index: 10;
+        }
+
+        .dj-overlay div {
+            margin: 2px 0;
+        }
+
+        .dj-overlay .param-label {
+            color: #aaa;
+            display: inline-block;
+            width: 70px;
+        }
+
+        .dj-overlay .param-value {
+            color: #0ff;
+            font-weight: bold;
+        }
+
         @media (max-width: 800px) {
             .container {
                 padding: 15px;
@@ -398,6 +428,10 @@
             <div class="canvas-wrapper">
                 <canvas id="mainCanvas" width="1200" height="400"></canvas>
                 <div class="playback-line" id="playbackLine"></div>
+                <div class="dj-overlay" id="djOverlay">
+                    <div><span class="param-label">Pitch:</span><span class="param-value" id="pitchValue">0半音</span></div>
+                    <div><span class="param-label">Filter:</span><span class="param-value" id="filterValue">20kHz</span></div>
+                </div>
             </div>
         </div>
 
@@ -405,7 +439,7 @@
             💡 使い方: 色を選んで線を描き、再生ボタンを押すと音が鳴ります。<br>
             縦の位置で音程が変わり、上が高音、下が低音です。色によって音色が変わります。<br>
             🎼 音階を選んで雰囲気を変えられます。リズムは自動整列で、適当に描いても音楽になります！<br>
-            🎧 <strong>DJモード:</strong> 再生中にキャンバスをドラッグすると、ピッチベンド＆フィルターが効きます！上下に動かして音を操作しよう！
+            🎧 <strong>DJモード:</strong> 再生中にキャンバスをドラッグ！ <strong>上下=ピッチベンド</strong>、<strong>左右=フィルター</strong>で音を自在に操作！
         </div>
     </div>
 
@@ -436,7 +470,10 @@
             // DJ Mode (real-time effects)
             djMode: {
                 active: false,
+                startX: 0,
                 startY: 0,
+                currentX: 0,
+                currentY: 0,
                 pitchBend: 1.0,        // 0.5 ~ 2.0 (±1 octave)
                 filterEnabled: false,
                 filterCutoff: 20000    // 200 ~ 20000 Hz
@@ -933,10 +970,17 @@
             // DJ Mode: During playback, start DJ control instead of drawing
             if (state.isPlaying) {
                 state.djMode.active = true;
+                state.djMode.startX = pos.x;
                 state.djMode.startY = pos.y;
+                state.djMode.currentX = pos.x;
+                state.djMode.currentY = pos.y;
                 state.djMode.pitchBend = 1.0;
                 state.djMode.filterEnabled = false;
                 state.djMode.filterCutoff = 20000;
+
+                // Show DJ overlay
+                document.getElementById('djOverlay').style.display = 'block';
+                updateDJVisuals();
                 return;
             }
 
@@ -949,20 +993,32 @@
         function draw(e) {
             const pos = getCoordinates(e);
 
-            // DJ Mode: Update effects based on Y distance from start
+            // DJ Mode: Update effects based on X/Y distance from start
             if (state.djMode.active) {
-                const deltaY = state.djMode.startY - pos.y; // Inverted: up = positive
+                state.djMode.currentX = pos.x;
+                state.djMode.currentY = pos.y;
 
-                // Pitch bend: ±200px = ±1 octave (0.5x ~ 2.0x)
+                const deltaY = state.djMode.startY - pos.y; // Inverted: up = positive
+                const deltaX = pos.x - state.djMode.startX; // Right = positive
+
+                // Pitch bend (Y-axis): ±200px = ±1 octave (0.5x ~ 2.0x)
                 const pitchSemitones = (deltaY / 200) * 12; // ±12 semitones
                 state.djMode.pitchBend = Math.pow(2, pitchSemitones / 12);
                 state.djMode.pitchBend = Math.max(0.5, Math.min(2.0, state.djMode.pitchBend));
 
-                // Filter: up = bright (20kHz), down = muffled (200Hz)
-                state.djMode.filterEnabled = true;
-                const filterRange = 20000 - 200;
-                state.djMode.filterCutoff = 10000 + (deltaY / 200) * 9800;
+                // Filter (X-axis): ±600px = 200Hz ~ 20kHz
+                // Center = 10kHz, right = bright (20kHz), left = muffled (200Hz)
+                const filterNormalized = deltaX / 600; // -1 to 1
+                const logMin = Math.log(200);
+                const logMax = Math.log(20000);
+                const logCenter = (logMin + logMax) / 2;
+                const logFilter = logCenter + filterNormalized * (logMax - logMin) / 2;
+                state.djMode.filterCutoff = Math.exp(logFilter);
                 state.djMode.filterCutoff = Math.max(200, Math.min(20000, state.djMode.filterCutoff));
+                state.djMode.filterEnabled = true;
+
+                // Update visual feedback
+                updateDJVisuals();
 
                 return;
             }
@@ -1024,12 +1080,87 @@
                 state.djMode.pitchBend = 1.0;
                 state.djMode.filterEnabled = false;
                 state.djMode.filterCutoff = 20000;
+
+                // Hide DJ overlay
+                document.getElementById('djOverlay').style.display = 'none';
             }
 
             // Reset drawing mode
             if (isDrawing) {
                 isDrawing = false;
             }
+        }
+
+        // ==================== DJ Mode Visuals ====================
+        function updateDJVisuals() {
+            // Update text display
+            const pitchSemitones = Math.round(12 * Math.log2(state.djMode.pitchBend));
+            const pitchDisplay = pitchSemitones >= 0 ? `+${pitchSemitones}半音` : `${pitchSemitones}半音`;
+
+            let filterDisplay;
+            if (state.djMode.filterCutoff >= 1000) {
+                filterDisplay = `${(state.djMode.filterCutoff / 1000).toFixed(1)}kHz`;
+            } else {
+                filterDisplay = `${Math.round(state.djMode.filterCutoff)}Hz`;
+            }
+
+            document.getElementById('pitchValue').textContent = pitchDisplay;
+            document.getElementById('filterValue').textContent = filterDisplay;
+        }
+
+        function drawDJGuides() {
+            if (!state.djMode.active || !state.canvasSnapshot) return;
+
+            // Draw crosshair at start position
+            ctx.save();
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+
+            // Vertical line (pitch indicator)
+            ctx.beginPath();
+            ctx.moveTo(state.djMode.startX, 0);
+            ctx.lineTo(state.djMode.startX, canvas.height);
+            ctx.stroke();
+
+            // Horizontal line (filter indicator)
+            ctx.beginPath();
+            ctx.moveTo(0, state.djMode.startY);
+            ctx.lineTo(canvas.width, state.djMode.startY);
+            ctx.stroke();
+
+            ctx.setLineDash([]);
+
+            // Draw start point marker
+            ctx.fillStyle = 'rgba(0, 255, 255, 0.6)';
+            ctx.beginPath();
+            ctx.arc(state.djMode.startX, state.djMode.startY, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw current position marker
+            ctx.strokeStyle = 'rgba(255, 0, 255, 1)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(state.djMode.currentX, state.djMode.currentY, 12, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Draw delta lines
+            ctx.strokeStyle = 'rgba(255, 255, 0, 0.6)';
+            ctx.lineWidth = 2;
+
+            // Vertical delta (pitch)
+            ctx.beginPath();
+            ctx.moveTo(state.djMode.startX, state.djMode.startY);
+            ctx.lineTo(state.djMode.startX, state.djMode.currentY);
+            ctx.stroke();
+
+            // Horizontal delta (filter)
+            ctx.beginPath();
+            ctx.moveTo(state.djMode.startX, state.djMode.currentY);
+            ctx.lineTo(state.djMode.currentX, state.djMode.currentY);
+            ctx.stroke();
+
+            ctx.restore();
         }
 
         // ==================== Playback ====================
@@ -1129,6 +1260,9 @@
             // Restore original canvas and redraw flashes
             if (state.canvasSnapshot) {
                 ctx.putImageData(state.canvasSnapshot, 0, 0);
+
+                // Draw DJ mode guides if active
+                drawDJGuides();
 
                 // Redraw active flashes
                 state.activeFlashes.forEach(flash => {
