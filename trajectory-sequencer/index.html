@@ -476,7 +476,7 @@
                 currentY: 0,
                 filterEnabled: false,
                 filterCutoff: 10000,   // 200 ~ 20000 Hz
-                resonance: 1.0         // 0.1 ~ 30 (Q value)
+                resonance: 1.0         // 0.5 ~ 50 (Q value)
             }
         };
 
@@ -1001,9 +1001,9 @@
                 const deltaY = state.djMode.startY - pos.y; // Inverted: up = positive
                 const deltaX = pos.x - state.djMode.startX; // Right = positive
 
-                // Filter Cutoff (Y-axis): ±200px = 200Hz ~ 20kHz
+                // Filter Cutoff (Y-axis): ±150px = 200Hz ~ 20kHz (more sensitive)
                 // Up = bright (20kHz), Down = muffled (200Hz), Center = 10kHz
-                const filterNormalized = deltaY / 200; // -1 to 1
+                const filterNormalized = Math.max(-1, Math.min(1, deltaY / 150)); // -1 to 1, clamped
                 const logMin = Math.log(200);
                 const logMax = Math.log(20000);
                 const logCenter = (logMin + logMax) / 2;
@@ -1011,15 +1011,15 @@
                 state.djMode.filterCutoff = Math.exp(logFilter);
                 state.djMode.filterCutoff = Math.max(200, Math.min(20000, state.djMode.filterCutoff));
 
-                // Resonance (X-axis): ±600px = 0.1 ~ 30 (Q value)
-                // Left = clean (0.1), Right = resonant/noisy (30), Center = 1.0
-                const resonanceNormalized = deltaX / 600; // -1 to 1
-                const logResMin = Math.log(0.1);
-                const logResMax = Math.log(30);
+                // Resonance (X-axis): ±400px = 0.5 ~ 50 (Q value) - more sensitive & extreme
+                // Left = clean (0.5), Right = resonant/noisy (50), Center = 1.0
+                const resonanceNormalized = Math.max(-1, Math.min(1, deltaX / 400)); // -1 to 1, clamped
+                const logResMin = Math.log(0.5);
+                const logResMax = Math.log(50);
                 const logResCenter = Math.log(1.0);
                 const logRes = logResCenter + resonanceNormalized * (logResMax - logResMin) / 2;
                 state.djMode.resonance = Math.exp(logRes);
-                state.djMode.resonance = Math.max(0.1, Math.min(30, state.djMode.resonance));
+                state.djMode.resonance = Math.max(0.5, Math.min(50, state.djMode.resonance));
 
                 state.djMode.filterEnabled = true;
 
