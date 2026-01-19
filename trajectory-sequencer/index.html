@@ -430,7 +430,7 @@
                 <div class="playback-line" id="playbackLine"></div>
                 <div class="dj-overlay" id="djOverlay">
                     <div><span class="param-label">Filter:</span><span class="param-value" id="pitchValue">10kHz</span></div>
-                    <div><span class="param-label">Resonance:</span><span class="param-value" id="filterValue">1.0</span></div>
+                    <div><span class="param-label">Resonance:</span><span class="param-value" id="filterValue">0.5</span></div>
                 </div>
             </div>
         </div>
@@ -476,7 +476,7 @@
                 currentY: 0,
                 filterEnabled: false,
                 filterCutoff: 10000,   // 200 ~ 20000 Hz
-                resonance: 1.0         // 0.5 ~ 50 (Q value)
+                resonance: 0.5         // 0.5 ~ 50 (Q value, start at minimum)
             }
         };
 
@@ -976,7 +976,7 @@
                 state.djMode.currentY = pos.y;
                 state.djMode.filterEnabled = false;
                 state.djMode.filterCutoff = 10000;
-                state.djMode.resonance = 1.0;
+                state.djMode.resonance = 0.5;
 
                 // Show DJ overlay
                 document.getElementById('djOverlay').style.display = 'block';
@@ -1011,13 +1011,12 @@
                 state.djMode.filterCutoff = Math.exp(logFilter);
                 state.djMode.filterCutoff = Math.max(200, Math.min(20000, state.djMode.filterCutoff));
 
-                // Resonance (X-axis): ±400px = 0.5 ~ 50 (Q value) - more sensitive & extreme
-                // Left = clean (0.5), Right = resonant/noisy (50), Center = 1.0
-                const resonanceNormalized = Math.max(-1, Math.min(1, deltaX / 400)); // -1 to 1, clamped
+                // Resonance (X-axis): 0 ~ 800px = 0.5 ~ 50 (Q value) - right direction only
+                // Start point = clean (0.5), Right = resonant/noisy (50)
+                const resonanceNormalized = Math.max(0, Math.min(1, deltaX / 800)); // 0 to 1, only right
                 const logResMin = Math.log(0.5);
                 const logResMax = Math.log(50);
-                const logResCenter = Math.log(1.0);
-                const logRes = logResCenter + resonanceNormalized * (logResMax - logResMin) / 2;
+                const logRes = logResMin + resonanceNormalized * (logResMax - logResMin);
                 state.djMode.resonance = Math.exp(logRes);
                 state.djMode.resonance = Math.max(0.5, Math.min(50, state.djMode.resonance));
 
@@ -1085,7 +1084,7 @@
                 state.djMode.active = false;
                 state.djMode.filterEnabled = false;
                 state.djMode.filterCutoff = 10000;
-                state.djMode.resonance = 1.0;
+                state.djMode.resonance = 0.5;
 
                 // Hide DJ overlay
                 document.getElementById('djOverlay').style.display = 'none';
